@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#080f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>מעקב שכר ₪</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080f1e;--surface:#111827;--surface2:#1a2438;--surface3:#222f45;
+  --border:#1e2d45;--border2:#2a3d5a;--primary:#4f8ef7;--primary-dark:#2563eb;
+  --primary-glow:rgba(79,142,247,0.2);--success:#22d05a;--success-dim:rgba(34,208,90,0.12);
+  --warning:#f5a623;--danger:#f04438;--danger-dim:rgba(240,68,56,0.12);
+  --text:#f0f4ff;--text2:#8ba3c7;--text3:#4a6080;
+  --radius:14px;--radius-sm:9px;--nav:66px;
+  --shadow:0 4px 32px rgba(0,0,0,0.6);--shadow-sm:0 2px 12px rgba(0,0,0,0.4);
+}
+html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+button{cursor:pointer;border:none;background:none;color:inherit}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+
+#app{max-width:540px;margin:0 auto;min-height:100%;position:relative}
+.page{padding:22px 16px calc(var(--nav) + 28px);display:none;min-height:100vh}
+.page.active{display:block}
+.page-title{font-size:24px;font-weight:800;margin-bottom:22px;letter-spacing:-0.3px}
+
+.card{background:var(--surface);border-radius:var(--radius);padding:16px;border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.card+.card{margin-top:12px}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:14px}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat-card{background:var(--surface);border-radius:var(--radius);padding:14px 16px;border:1px solid var(--border);box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;inset-block:0;inset-inline-start:0;width:3px;border-radius:0}
+.stat-card.g::before{background:var(--success)}.stat-card.b::before{background:var(--primary)}
+.stat-card.r::before{background:var(--danger)}.stat-card.y::before{background:var(--warning)}
+.stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:5px}
+.stat-val{font-size:21px;font-weight:800;letter-spacing:-0.5px}
+.green{color:var(--success)}.blue{color:var(--primary)}.red{color:var(--danger)}.yellow{color:var(--warning)}
+
+.hero-card{background:linear-gradient(135deg,#0e1e38 0%,#112240 100%);border:1px solid #1d3254;border-radius:var(--radius);padding:20px;margin-bottom:12px;box-shadow:var(--shadow)}
+.hero-card .stat-label{color:#4a7aaa}
+.hero-val{font-size:36px;font-weight:900;letter-spacing:-1.5px;color:var(--success);line-height:1;margin:4px 0 12px}
+.hero-sub{display:flex;gap:20px;font-size:13px;color:var(--text3)}
+
+.month-nav{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:var(--radius);padding:11px 16px;border:1px solid var(--border);margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.mnb{background:var(--surface2);border:1px solid var(--border2);color:var(--text);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;transition:background .15s,border-color .15s;line-height:1}
+.mnb:hover{background:var(--surface3);border-color:var(--primary)}
+.mnb:disabled{opacity:.25;cursor:not-allowed}
+.mn-label{font-size:16px;font-weight:700;letter-spacing:-0.2px}
+
+.fgroup{margin-bottom:14px}
+.flabel{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:7px}
+.finput{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:11px 13px;outline:none;transition:border-color .15s,box-shadow .15s}
+.finput:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
+.finput::placeholder{color:var(--text3)}
+.finput[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fsection{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px;display:flex;align-items:center;gap:8px}
+.fsection::before{content:'';flex:1;height:1px;background:var(--border)}
+
+.check-row{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;transition:border-color .15s}
+.check-row:hover{border-color:var(--primary)}
+.check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+.check-row span{font-size:14px;font-weight:500;color:var(--text2)}
+.check-row small{font-size:12px;color:var(--text3);margin-inline-start:auto}
+
+.detect-box{border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:10px;font-size:13px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2)}
+.detect-box.ok{border-color:rgba(34,208,90,.35);color:var(--success);background:rgba(34,208,90,.06)}
+.detect-box.err{border-color:rgba(240,68,56,.35);color:var(--danger);background:rgba(240,68,56,.06)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 22px;border-radius:var(--radius-sm);font-size:14px;font-weight:700;transition:background .15s,transform .1s,box-shadow .15s;border:none;letter-spacing:0.1px}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--primary);color:#fff;box-shadow:0 4px 16px rgba(79,142,247,.3)}.btn-p:hover{background:var(--primary-dark)}
+.btn-d{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(240,68,56,.3)}.btn-d:hover{background:rgba(240,68,56,.22)}
+.btn-g{background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}.btn-g:hover{background:var(--surface3)}
+.btn-w{width:100%}.btn-sm{padding:8px 14px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+.entry-list{list-style:none}
+.entry-item{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;cursor:pointer;transition:background .15s,border-color .15s}
+.entry-item:hover{background:var(--surface2);border-color:var(--border2)}
+.swipe-wrap{position:relative;overflow:hidden;border-radius:var(--radius-sm);margin-bottom:8px;list-style:none}
+.swipe-wrap .entry-item{margin-bottom:0;border-radius:var(--radius-sm);will-change:transform}
+.swipe-del{position:absolute;right:0;top:0;bottom:0;width:72px;background:var(--danger);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;border-radius:0 var(--radius-sm) var(--radius-sm) 0;-webkit-tap-highlight-color:transparent}
+.swipe-del span{font-size:10px;font-weight:700;letter-spacing:.02em}
+.entry-date{font-size:13px;font-weight:700;letter-spacing:-0.1px}
+.entry-detail{font-size:12px;color:var(--text3);margin-top:3px}
+.entry-pay{font-size:15px;font-weight:800;color:var(--success);white-space:nowrap;margin-inline-start:12px;letter-spacing:-0.3px}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-inline-end:3px;letter-spacing:.02em}
+.tb{background:rgba(79,142,247,.15);color:var(--primary)}
+.tg{background:rgba(34,208,90,.15);color:var(--success)}
+.to{background:rgba(245,166,35,.15);color:var(--warning)}
+.tr{background:rgba(240,68,56,.15);color:var(--danger)}
+.tv{background:rgba(168,85,247,.15);color:#c084fc}
+.tp{background:rgba(20,184,166,.15);color:#2dd4bf}
+
+.stub-head{background:linear-gradient(135deg,#1a3a6e 0%,#0f2a52 100%);border-radius:var(--radius) var(--radius) 0 0;padding:22px 20px;color:#fff;border:1px solid #1d3d7a;border-bottom:none}
+.stub-sec{padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-top:none}
+.stub-sec:last-child{border-radius:0 0 var(--radius) var(--radius)}
+.stub-sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:10px}
+.stub-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.stub-row:last-child{border-bottom:none}
+.stub-row.total{font-weight:800;font-size:15px;padding-top:10px}
+.stub-row.ded .sv{color:var(--danger)}
+.stub-row.neg .sv{color:var(--danger)}
+.sv-net{color:var(--success)!important;font-size:26px!important;font-weight:900!important;letter-spacing:-0.8px}
+.divider{height:1px;background:var(--border);margin:12px 0}
+
+.bottom-nav{position:fixed;bottom:0;inset-inline:0;margin:0 auto;max-width:540px;height:var(--nav);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;z-index:100;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 10px;border-radius:var(--radius-sm);color:var(--text3);font-size:10px;font-weight:600;transition:color .15s}
+.nav-btn svg{width:22px;height:22px}
+.nav-btn.active{color:var(--primary)}
+.nav-add{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(79,142,247,.5);transition:transform .15s,box-shadow .15s}
+.nav-add:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(79,142,247,.6)}
+.nav-add svg{width:26px;height:26px}
+
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:11px 22px;border-radius:22px;font-size:14px;font-weight:700;z-index:999;display:none;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.4);white-space:nowrap}
+#toast.ok{background:var(--success);color:#fff}
+#toast.err{background:var(--danger);color:#fff}
+
+.err-banner{background:var(--danger-dim);border:1px solid rgba(240,68,56,.35);border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:16px;color:var(--danger);font-size:13px;display:none}
+.err-banner.show{display:block}
+
+.empty{text-align:center;padding:52px 20px;color:var(--text3)}
+.empty svg{width:52px;height:52px;margin:0 auto 14px;opacity:.3;display:block}
+.empty p{font-size:14px;line-height:1.6}
+.loading{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--text3);font-size:14px}
+
+#setup{position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;display:none}
+#setup.show{display:block}
+.setup-inner{max-width:480px;margin:0 auto;padding:48px 20px}
+.setup-logo{font-size:52px;margin-bottom:10px}
+.setup-title{font-size:28px;font-weight:900;margin-bottom:6px;letter-spacing:-0.5px}
+.setup-sub{color:var(--text2);margin-bottom:36px;font-size:14px;line-height:1.7}
+.setup-opt{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px;cursor:pointer;transition:border-color .2s,background .2s}
+.setup-opt:hover,.setup-opt.sel{border-color:var(--primary);background:var(--surface2)}
+.setup-opt h3{font-size:16px;font-weight:700;margin-bottom:5px}
+.setup-opt p{font-size:13px;color:var(--text2);line-height:1.5}
+.fb-form{display:none;margin-top:20px}
+.fb-form.show{display:block}
+.setup-step{font-size:13px;color:var(--text2);line-height:1.8;background:var(--surface2);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:14px;border:1px solid var(--border)}
+.setup-step strong{color:var(--text)}
+
+.row{display:flex;align-items:center}
+.sb{justify-content:space-between}
+.gap{gap:10px}.gap6{gap:6px}
+.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}.mt14{margin-top:14px}.mt16{margin-top:16px}
+.fs12{font-size:12px}.fs13{font-size:13px}.text2{color:var(--text2)}.text3{color:var(--text3)}
+.fw7{font-weight:700}.fw8{font-weight:800}
+
+/* ─── Desktop layout ≥ 768px ────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  :root{--nav:0px}
+
+  /* Convert bottom bar → right sidebar */
+  .bottom-nav{
+    position:fixed;
+    top:0;right:0;bottom:0;left:auto;
+    width:230px;height:100vh;max-width:230px;
+    flex-direction:column;
+    justify-content:flex-start;
+    align-items:stretch;
+    padding:0 0 20px;
+    gap:2px;
+    border-top:none;
+    border-left:1px solid var(--border);
+  }
+
+  /* Brand header inside sidebar */
+  .bottom-nav::before{
+    content:'₪ מעקב שכר';
+    display:block;
+    text-align:center;
+    padding:22px 16px 18px;
+    font-size:16px;font-weight:900;
+    color:var(--primary);
+    letter-spacing:-0.3px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:8px;
+    flex-shrink:0;
+  }
+
+  /* Nav items as horizontal rows */
+  .nav-btn{
+    flex-direction:row;
+    justify-content:flex-start;
+    width:calc(100% - 16px);
+    margin:1px 8px;
+    padding:12px 16px;
+    font-size:14px;font-weight:600;
+    gap:12px;border-radius:9px;
+    color:var(--text2);
+    transition:background .15s,color .15s;
+  }
+  .nav-btn svg{width:20px;height:20px;flex-shrink:0}
+  .nav-btn.active{color:var(--primary);background:var(--primary-glow)}
+  .nav-btn:hover:not(.active){background:var(--surface2);color:var(--text)}
+
+  /* FAB → full-width top button with label */
+  .nav-add{
+    order:-1;
+    width:calc(100% - 16px);
+    margin:0 8px 8px;
+    height:42px;border-radius:10px;
+    flex-shrink:0;gap:8px;
+  }
+  .nav-add svg{width:20px;height:20px}
+  .nav-add::after{content:'הוסף רישום';font-size:14px;font-weight:700}
+
+  /* App content: shift left to make room for right sidebar */
+  #app{max-width:none;margin:0 230px 0 0}
+
+  /* Page layout */
+  .page{padding:36px 48px 36px;max-width:860px}
+  .page-title{font-size:28px}
+
+  /* Dashboard: 4-column stats */
+  .stat-grid{grid-template-columns:repeat(4,1fr)}
+  .hero-val{font-size:44px}
+
+  /* Setup screen */
+  #setup .setup-inner{padding:60px 0;max-width:560px}
+
+  /* Toast: center over content area */
+  #toast{left:calc(50% - 115px)}
+}
+
+/* ─── Shabbat times inline text ──────────────────────────────────────────────── */
+.shab-inline{font-size:12px;color:var(--text3);text-align:center;padding:4px 0 10px;letter-spacing:.01em}
+
+@media print{
+  .bottom-nav,.no-print{display:none!important}
+  .page{padding-bottom:0}
+  :root{--bg:#fff;--surface:#fff;--surface2:#f5f7fa;--text:#111;--text2:#333;--text3:#666;--border:#dde3ed;--primary:#1d4ed8;--success:#15803d}
+  .hero-card,.stub-head{background:#1d4ed8!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP ══ -->
+<div id="setup">
+<div class="setup-inner">
+  <div class="setup-logo">💰</div>
+  <h1 class="setup-title">מעקב שכר</h1>
+  <p class="setup-sub">עקוב אחר שעות העבודה, שעות נוספות, שבת, נסיעות ובונוסים שלך — מהטלפון ומהמחשב.</p>
+
+  <div class="setup-opt sel" id="opt-local" onclick="selectSetup('local')">
+    <h3>📱 רק במכשיר הזה</h3>
+    <p>הנתונים נשמרים בדפדפן. מתחיל מיד, ללא צורך בחשבון. עובד גם ללא אינטרנט.</p>
+  </div>
+
+  <div class="setup-opt" id="opt-firebase" onclick="selectSetup('firebase')">
+    <h3>☁️ סנכרון בין מכשירים (מומלץ)</h3>
+    <p>השתמש ב-Firebase בחינם כדי לסנכרן בין הטלפון והמחשב.</p>
+  </div>
+
+  <div class="fb-form" id="fb-form">
+    <div class="setup-step">
+      <strong>שלב 1:</strong> כנס ל־ <strong>console.firebase.google.com</strong> והתחבר עם Gmail<br>
+      <strong>שלב 2:</strong> צור פרויקט חדש (לחץ "Add project")<br>
+      <strong>שלב 3:</strong> לחץ על סמל <strong>&lt;/&gt;</strong> להוסיף אפליקציית Web<br>
+      <strong>שלב 4:</strong> הפעל <strong>Firestore Database</strong> במצב Test Mode<br>
+      <strong>שלב 5:</strong> הכנס את הפרטים מהקוד שקיבלת:
+    </div>
+    <div class="card">
+      <div class="fgroup"><label class="flabel">API Key</label><input class="finput" id="fb-apiKey" placeholder="AIzaSy..."></div>
+      <div class="fgroup"><label class="flabel">Project ID</label><input class="finput" id="fb-projectId" placeholder="my-salary-app"></div>
+      <div class="fgroup"><label class="flabel">App ID</label><input class="finput" id="fb-appId" placeholder="1:123456:web:abc123"></div>
+    </div>
+  </div>
+
+  <div id="setup-err" class="err-banner mt12"></div>
+  <button class="btn btn-p btn-w mt16" style="font-size:16px;padding:14px" onclick="startApp()">בוא נתחיל ←</button>
+</div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app" style="display:none">
+
+<!-- ▸ Dashboard -->
+<div class="page active" id="page-dashboard">
+  <div class="row sb" style="margin-bottom:22px">
+    <h1 class="page-title" style="margin-bottom:0">ראשי</h1>
+    <span class="fs13 text3" id="dash-month-label"></span>
+  </div>
+
+  <div class="hero-card">
+    <div class="stat-label">שכר נטו החודש</div>
+    <div class="hero-val" id="dash-net">₪0.00</div>
+    <div class="hero-sub">
+      <span>ברוטו: <b id="dash-gross" style="color:var(--text2)">₪0.00</b></span>
+      <span>ניכויים: <b id="dash-ded" style="color:var(--danger)">₪0.00</b></span>
+    </div>
+  </div>
+
+  <!-- Shabbat times — auto-fetched from Hebcal, one-line text -->
+  <div class="shab-inline" id="shab-card"></div>
+
+  <div class="stat-grid">
+    <div class="stat-card b"><div class="stat-label">סה״כ שעות</div><div class="stat-val blue" id="dash-hours">0.0</div></div>
+    <div class="stat-card y"><div class="stat-label">ימי עבודה</div><div class="stat-val yellow" id="dash-days">0</div></div>
+    <div class="stat-card g"><div class="stat-label">בונוסים ואש״ל</div><div class="stat-val green" id="dash-bonuses">₪0.00</div></div>
+    <div class="stat-card r"><div class="stat-label">ניכויים</div><div class="stat-val red" id="dash-ded2">₪0.00</div></div>
+  </div>
+
+  <div class="card" id="dash-breakdown" style="display:none;margin-bottom:12px">
+    <div class="card-title">פירוט שכר</div>
+    <div id="dash-breakdown-rows"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">רישומים אחרונים</div>
+    <div class="loading" id="dash-loading" style="padding:24px">טוען...</div>
+    <ul class="entry-list" id="dash-entries"></ul>
+    <div class="empty" id="dash-empty" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <p>אין רישומים עדיין.<br>לחץ על <strong>+</strong> כדי לרשום יום עבודה.</p>
+    </div>
+    <button class="btn btn-g btn-w mt10 fs13" id="dash-view-all" style="display:none" onclick="navigate('monthly')">כל הרישומים ←</button>
+  </div>
+</div>
+
+<!-- ▸ Log Entry -->
+<div class="page" id="page-log">
+  <h1 class="page-title" id="log-title">רישום יום עבודה</h1>
+  <div class="err-banner" id="log-err"></div>
+  <form id="log-form" onsubmit="saveEntry(event)" novalidate>
+    <div class="card">
+
+      <div class="fgroup">
+        <label class="flabel">תאריך</label>
+        <input class="finput" type="date" id="f-date" required>
+      </div>
+
+      <div class="fsection">שעות כניסה ויציאה (לחישוב אוטומטי)</div>
+      <div class="frow">
+        <div class="fgroup">
+          <label class="flabel">שעת כניסה</label>
+          <input class="finput" type="text" id="f-start-time" placeholder="08:00" maxlength="5" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">שעת יציאה</label>
+          <input class="finput" type="text" id="f-end-time" placeholder="17:00" maxlength="5" inputmode="numeric" autocomplete="off">
+        </div>
+      </div>
+      <div id="detect-box" class="detect-box" style="display:none">
+        <div id="detect-info">מחשב...</div>
+      </div>
+
+      <div class="fsection">פירוט שעות</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">שעות בסיס</label><input class="finput" type="number" id="f-reg" min="0" step="any" placeholder="0"></div>
+        <div class="fgroup"><label class="flabel">שע״נ ×1.25</label><input class="finput" type="number" id="f-ot125" min="0" step="any" placeholder="0"></div>
+      </div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">שע״נ ×1.5</label><input class="finput" type="number" id="f-ot150" min="0" step="any" placeholder="0"></div>
+        <div class="fgroup"><label class="flabel">שע״נ ×1.75</label><input class="finput" type="number" id="f-ot175" min="0" step="any" placeholder="0"></div>
+      </div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">שע״נ ×2.0</label><input class="finput" type="number" id="f-ot200" min="0" step="any" placeholder="0"></div>
+        <div class="fgroup"><label class="flabel">שעות שבת</label><input class="finput" type="number" id="f-shab" min="0" step="any" placeholder="0"></div>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">שעות חג</label>
+        <input class="finput" type="number" id="f-hol" min="0" step="any" placeholder="0">
+      </div>
+
+      <div class="fsection">תוספות</div>
+      <label class="check-row" style="margin-bottom:10px">
+        <input type="checkbox" id="f-lina">
+        <span>לינה</span>
+        <small id="lina-amt-label">₪300</small>
+      </label>
+      <label class="check-row" style="margin-bottom:10px">
+        <input type="checkbox" id="f-op-bonus">
+        <span>בונוס מבצעי</span>
+        <small>₪500</small>
+      </label>
+      <div class="detect-box" style="display:block">
+        <span class="fs12 text3">אש״ל מחושב אוטומטית לפי ההגדרות שלך · הפסקה (30 דק׳) מנוכה למשמרות מעל 6 שעות</span>
+      </div>
+
+      <div class="fsection">נסיעות</div>
+      <label class="check-row" style="margin-bottom:10px">
+        <input type="checkbox" id="f-company-car">
+        <span>רכב חברה</span>
+        <small>₪60/יום</small>
+      </label>
+      <div class="frow">
+        <div class="fgroup">
+          <label class="flabel">ק״מ — רכב פרטי</label>
+          <input class="finput" type="number" id="f-dkm" min="0" step="any" placeholder="0">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">שעות נסיעה</label>
+          <input class="finput" type="number" id="f-dhrs" min="0" step="any" placeholder="0">
+        </div>
+      </div>
+
+      <div class="fsection">בונוס והערות</div>
+      <div class="fgroup">
+        <label class="flabel">בונוס (₪)</label>
+        <input class="finput" type="number" id="f-bonus" min="0" step="any" placeholder="0">
+      </div>
+      <div class="fgroup">
+        <label class="flabel">הערות</label>
+        <input class="finput" type="text" id="f-notes" placeholder="הערה לא חובה...">
+      </div>
+    </div>
+
+    <div class="row gap mt14">
+      <button type="submit" class="btn btn-p" style="flex:1" id="log-save-btn">שמור רישום</button>
+      <button type="button" class="btn btn-g" onclick="navigate('monthly')">ביטול</button>
+    </div>
+    <button type="button" class="btn btn-d btn-w mt10" id="log-delete-btn" style="display:none" onclick="deleteEntry()">🗑 מחק רישום</button>
+  </form>
+</div>
+
+<!-- ▸ Monthly View -->
+<div class="page" id="page-monthly">
+  <h1 class="page-title">סקירה חודשית</h1>
+  <div class="month-nav">
+    <button class="mnb" id="mon-next" onclick="monthShift(1)">&#8250;</button>
+    <span class="mn-label" id="mon-label"></span>
+    <button class="mnb" id="mon-prev" onclick="monthShift(-1)">&#8249;</button>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="row sb">
+      <div><div class="stat-label">ברוטו</div><div style="font-size:19px;font-weight:800" id="mon-gross">₪0.00</div></div>
+      <div style="text-align:start"><div class="stat-label">שכר נטו</div><div style="font-size:24px;font-weight:900;letter-spacing:-0.5px" class="green" id="mon-net">₪0.00</div></div>
+    </div>
+    <div class="divider"></div>
+    <div class="row gap6 fs12 text3">
+      <span id="mon-days">0 ימים</span>
+      <span style="color:var(--border2)">•</span>
+      <span id="mon-totalhrs">0.0 שעות סה״כ</span>
+    </div>
+  </div>
+  <div class="loading" id="mon-loading">טוען...</div>
+  <ul class="entry-list" id="mon-entries"></ul>
+  <div class="empty" id="mon-empty" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <p id="mon-empty-text">אין רישומים החודש.</p>
+    <button class="btn btn-p btn-sm mt12" onclick="openNewEntry()">+ רשום יום</button>
+  </div>
+</div>
+
+<!-- ▸ Pay Stub -->
+<div class="page" id="page-paystub">
+  <div class="row sb no-print" style="margin-bottom:16px">
+    <h1 class="page-title" style="margin-bottom:0">תלוש שכר</h1>
+    <button class="btn btn-g btn-sm" onclick="window.print()">🖨 הדפס</button>
+  </div>
+  <div class="month-nav no-print">
+    <button class="mnb" onclick="stubMonthShift(-1)">&#8250;</button>
+    <span class="mn-label" id="stub-label"></span>
+    <button class="mnb" id="stub-next" onclick="stubMonthShift(1)">&#8249;</button>
+  </div>
+  <div class="loading" id="stub-loading">טוען...</div>
+  <div id="stub-content"></div>
+  <div class="empty" id="stub-empty" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <p>אין נתונים לחודש זה.</p>
+  </div>
+</div>
+
+<!-- ▸ Settings -->
+<div class="page" id="page-settings">
+  <h1 class="page-title">הגדרות</h1>
+  <form id="settings-form" onsubmit="saveSettings(event)">
+    <div class="card">
+      <div class="fsection" style="margin-top:0">תעריפי שכר</div>
+      <div class="fgroup"><label class="flabel">שכר שעתי בסיס (₪)</label><input class="finput" type="number" id="s-base" min="0" step="any" required></div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">מכפיל שבת ×</label><input class="finput" type="number" id="s-shab" min="1" step="any"></div>
+        <div class="fgroup"><label class="flabel">מכפיל חג ×</label><input class="finput" type="number" id="s-hol" min="1" step="any"></div>
+      </div>
+      <div class="fgroup"><label class="flabel">שעות בסיס ביום</label><input class="finput" type="number" id="s-daily-hrs" min="1" step="any"></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:-8px;margin-bottom:14px">שעות מעבר לסף זה = שעות נוספות (ראשונות ×1.25, מעבר ×1.5)</div>
+
+      <div class="fsection">אש״ל, לינה ובונוס</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">סכום אש״ל (₪)</label><input class="finput" type="number" id="s-ashal-amt" min="0" step="1" placeholder="50"></div>
+        <div class="fgroup"><label class="flabel">מינ׳ שעות לאש״ל</label><input class="finput" type="number" id="s-ashal-hrs" min="1" step="any" placeholder="8"></div>
+      </div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">סכום לינה (₪)</label><input class="finput" type="number" id="s-lina" min="0" step="1" placeholder="300"></div>
+        <div class="fgroup"><label class="flabel">בונוס מבצעי (₪)</label><input class="finput" type="number" id="s-op-bonus" min="0" step="1" placeholder="500"></div>
+      </div>
+
+      <div class="fsection">נסיעות</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">רכב פרטי (₪/ק״מ)</label><input class="finput" type="number" id="s-dkm" min="0" step="any"></div>
+        <div class="fgroup"><label class="flabel">רכב חברה (₪/יום)</label><input class="finput" type="number" id="s-company-car" min="0" step="any"></div>
+      </div>
+      <div class="fgroup"><label class="flabel">שכר שעת נסיעה (₪/שע׳)</label><input class="finput" type="number" id="s-dhrs" min="0" step="any" placeholder="0"></div>
+
+      <div class="fsection">ביטוח לאומי</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">שיעור 1 (%)</label><input class="finput" type="number" id="s-bl-low" min="0" max="100" step="any"></div>
+        <div class="fgroup"><label class="flabel">עד הכנסה חודשית (₪)</label><input class="finput" type="number" id="s-bl-thr" min="0" step="1"></div>
+      </div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">שיעור 2 (%)</label><input class="finput" type="number" id="s-bl-high" min="0" max="100" step="any"></div>
+        <div class="fgroup"><label class="flabel">עד תקרת שכר (₪)</label><input class="finput" type="number" id="s-bl-max" min="0" step="1"></div>
+      </div>
+      <div class="fgroup"><label class="flabel">ביטוח בריאות %</label><input class="finput" type="number" id="s-health" min="0" max="100" step="any"></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:14px">ברירת מחדל: 4.27% עד ₪7,703 | 12.17% עד ₪51,910 (2026)</div>
+
+      <div class="fsection">מס הכנסה</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">נקודות זכות</label><input class="finput" type="number" id="s-tax-pts" min="0" step="any"></div>
+        <div class="fgroup"><label class="flabel">שווי נקודה (₪/חודש)</label><input class="finput" type="number" id="s-tax-ptval" min="0" step="1"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:14px">מדרגות 2026: 10%/14%/20%/31%/35%/47%/50% — מחושבות אוטומטית לפי ההכנסה החודשית</div>
+
+      <div class="fsection">ניכויי עובד</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">פנסיה (עובד) %</label><input class="finput" type="number" id="s-pen" min="0" max="100" step="any"></div>
+        <div class="fgroup"><label class="flabel">קרן השתלמות %</label><input class="finput" type="number" id="s-gemel" min="0" max="100" step="any"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:14px">פנסיה וקרן השתלמות מחושבות על שכר שעות בלבד.</div>
+
+      <div class="fsection">הפרשות מעסיק</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">פנסיה (מעסיק) %</label><input class="finput" type="number" id="s-emp-pen" min="0" max="100" step="any"></div>
+        <div class="fgroup"><label class="flabel">פיצויים %</label><input class="finput" type="number" id="s-severance" min="0" max="100" step="any"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:14px">מחושבות על שכר שעות בלבד. מוצגות בתלוש לידיעה — אינן מנוכות מהנטו.</div>
+    </div>
+    <button type="submit" class="btn btn-p btn-w mt14" id="settings-save-btn">שמור הגדרות</button>
+  </form>
+
+  <div class="card mt12 fs13 text3">
+    <div class="card-title">אחסון נתונים</div>
+    <p id="storage-mode-text"></p>
+    <button class="btn btn-g btn-sm mt10" onclick="resetStorage()">שנה אחסון / אפס</button>
+  </div>
+
+  <div class="card mt12 fs13 text3">
+    <div class="card-title">אודות</div>
+    <p>מעקב שכר לעובדים שעתיים בישראל. שעות נוספות לפי חוק עבודה: ראשונות ×1.25, מעבר לכך ×1.5. שבת וחגים לפי המכפיל שהגדרת. ביטוח לאומי ומס הכנסה מחושבים לפי מדרגות חוקיות (2026). זמני שבת וחגים מ-Hebcal.</p>
+  </div>
+</div>
+
+<!-- ══ Bottom Nav ══ -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nb-dashboard" onclick="navigate('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    ראשי
+  </button>
+  <button class="nav-btn" id="nb-monthly" onclick="navigate('monthly')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    חודשי
+  </button>
+  <button class="nav-add" onclick="openNewEntry()" aria-label="הוסף רישום">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <button class="nav-btn" id="nb-paystub" onclick="navigate('paystub')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    תלוש
+  </button>
+  <button class="nav-btn" id="nb-settings" onclick="navigate('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    הגדרות
+  </button>
+</nav>
+
+</div><!-- #app -->
+<div id="toast"></div>
+
+<script type="module">
+// ─── Firebase lazy load ───────────────────────────────────────────────────────
+let db = null, useFirebase = false
+
+async function initFirebase(cfg) {
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js')
+  const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js')
+  const app = initializeApp({
+    apiKey: cfg.apiKey,
+    authDomain: `${cfg.projectId}.firebaseapp.com`,
+    projectId: cfg.projectId,
+    appId: cfg.appId
+  })
+  db = fs.getFirestore(app)
+  window._fs = fs
+  useFirebase = true
+}
+
+// ─── Default settings ─────────────────────────────────────────────────────────
+const DEFAULTS = {
+  base_hourly_rate: 40,
+  driving_km_rate: 1,
+  shabbat_rate: 1.5,
+  holiday_rate: 1.5,
+  ashal_amount: 50,
+  ashal_min_hours: 8,
+  lina_amount: 300,
+  op_bonus_amount: 500,
+  company_car_rate: 60,
+  driving_hourly_rate: 0,
+  daily_regular_hours: 8,
+  bl_threshold: 7703,
+  bl_max_income: 51910,
+  bl_rate_low: 4.27,
+  bl_rate_high: 12.17,
+  tax_points: 2.25,
+  tax_point_value: 258,
+  pension_employee_pct: 6,
+  gemel_pct: 2.5,
+  health_ins_pct: 0,
+  employer_pension_pct: 6.5,
+  severance_pct: 8.33
+}
+
+// ─── Storage abstraction ──────────────────────────────────────────────────────
+async function loadSettings() {
+  if (useFirebase) {
+    const snap = await window._fs.getDoc(window._fs.doc(db, 'salary', 'settings'))
+    return snap.exists() ? { ...DEFAULTS, ...snap.data() } : { ...DEFAULTS }
+  }
+  const raw = localStorage.getItem('st_settings')
+  return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS }
+}
+
+async function saveSettingsDB(data) {
+  if (useFirebase) { await window._fs.setDoc(window._fs.doc(db, 'salary', 'settings'), data); return }
+  localStorage.setItem('st_settings', JSON.stringify(data))
+}
+
+async function loadEntries(month) {
+  if (useFirebase) {
+    const { collection, query, where, getDocs } = window._fs
+    const q = query(collection(db, 'entries'), where('month','==',month))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.date.localeCompare(b.date))
+  }
+  const raw = localStorage.getItem('st_entries')
+  const all = raw ? JSON.parse(raw) : {}
+  return Object.values(all).filter(e => e.date.startsWith(month)).sort((a,b) => a.date.localeCompare(b.date))
+}
+
+async function loadEntry(id) {
+  if (useFirebase) {
+    const snap = await window._fs.getDoc(window._fs.doc(db, 'entries', id))
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+  }
+  const raw = localStorage.getItem('st_entries')
+  const all = raw ? JSON.parse(raw) : {}
+  return all[id] || null
+}
+
+async function saveEntryDB(id, data) {
+  if (useFirebase) { await window._fs.setDoc(window._fs.doc(db, 'entries', id), data); return }
+  const raw = localStorage.getItem('st_entries')
+  const all = raw ? JSON.parse(raw) : {}
+  all[id] = { ...data, id }
+  localStorage.setItem('st_entries', JSON.stringify(all))
+}
+
+async function deleteEntryDB(id) {
+  if (useFirebase) { await window._fs.deleteDoc(window._fs.doc(db, 'entries', id)); return }
+  const raw = localStorage.getItem('st_entries')
+  const all = raw ? JSON.parse(raw) : {}
+  delete all[id]
+  localStorage.setItem('st_entries', JSON.stringify(all))
+}
+
+// ─── Hebcal / Shabbat detection ───────────────────────────────────────────────
+const _hebCache = {}
+
+async function fetchHebcalPeriods(dateStr) {
+  if (_hebCache[dateStr]) return _hebCache[dateStr]
+  try {
+    const d = new Date(dateStr + 'T12:00:00')
+    const url = `https://www.hebcal.com/shabbat/?cfg=json&geonameid=293397&M=on&gy=${d.getFullYear()}&gm=${d.getMonth()+1}&gd=${d.getDate()}&a=on`
+    const data = await fetch(url).then(r => r.json())
+    const periods = parseHebcalItems(data.items || [])
+    _hebCache[dateStr] = periods
+    return periods
+  } catch(e) {
+    console.warn('Hebcal fetch failed:', e)
+    return []
+  }
+}
+
+function parseHebcalItems(items) {
+  const periods = []
+  let lastCandles = null, lastHolName = null
+  for (const item of items) {
+    if (item.category === 'candles') {
+      lastCandles = new Date(item.date)
+      lastHolName = null
+    } else if (item.category === 'holiday' && lastCandles &&
+               item.subcat === 'major') {
+      lastHolName = item.title
+    } else if (item.category === 'havdalah' && lastCandles) {
+      periods.push({
+        type: lastHolName ? 'holiday' : 'shabbat',
+        name: lastHolName || 'שבת',
+        start: lastCandles,
+        end: new Date(item.date)
+      })
+      lastCandles = null; lastHolName = null
+    }
+  }
+  return periods
+}
+
+function overlapHours(wStart, wEnd, pStart, pEnd) {
+  const s = Math.max(wStart.getTime(), pStart.getTime())
+  const e = Math.min(wEnd.getTime(), pEnd.getTime())
+  return e > s ? (e - s) / 3600000 : 0
+}
+
+function normalizeTime(str) {
+  if (!str) return null
+  const m = str.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return null
+  const h = parseInt(m[1], 10), min = parseInt(m[2], 10)
+  if (h > 23 || min > 59) return null
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`
+}
+
+// Night shift: any shift overlapping 22:00–06:00 has a 7-hour legal workday
+function isNightShift(startDt, endDt) {
+  function nightOverlap(dayStr) {
+    const next = new Date(new Date(dayStr).getTime() + 86400000).toISOString().slice(0, 10)
+    return overlapHours(startDt, endDt, new Date(`${dayStr}T22:00:00`), new Date(`${next}T06:00:00`))
+  }
+  const d0 = startDt.toISOString().slice(0, 10)
+  const d1 = new Date(startDt.getTime() - 86400000).toISOString().slice(0, 10)
+  return nightOverlap(d0) > 0 || nightOverlap(d1) > 0
+}
+
+async function autoCalcHours(date, startTime, endTime) {
+  const st = normalizeTime(startTime)
+  const et = normalizeTime(endTime)
+  if (!st) return { error: 'שעת כניסה לא תקינה (HH:MM)' }
+  if (!et) return { error: 'שעת יציאה לא תקינה (HH:MM)' }
+  const startDt = new Date(`${date}T${st}`)
+  let endDate = date
+  let endDt = new Date(`${endDate}T${et}`)
+  // Auto next-day: if end ≤ start assume shift crosses midnight
+  if (endDt <= startDt) {
+    const d = new Date(date); d.setDate(d.getDate() + 1)
+    endDate = d.toISOString().slice(0, 10)
+    endDt = new Date(`${endDate}T${et}`)
+  }
+  if (isNaN(startDt) || isNaN(endDt)) return { error: 'שעה לא תקינה' }
+  if (endDt <= startDt) return { error: 'שעת יציאה לא תקינה' }
+
+  let periods = await fetchHebcalPeriods(date)
+  if (endDate !== date) {
+    const more = await fetchHebcalPeriods(endDate)
+    for (const p of more) {
+      if (!periods.some(x => x.start.getTime() === p.start.getTime())) periods.push(p)
+    }
+  }
+
+  const totalHours = (endDt - startDt) / 3600000
+  let shabbatTotal = 0, holidayTotal = 0
+  const detected = []
+
+  for (const p of periods) {
+    const ov = overlapHours(startDt, endDt, p.start, p.end)
+    if (ov > 0.005) {
+      if (p.type === 'shabbat') shabbatTotal += ov
+      else holidayTotal += ov
+      detected.push({ name: p.name, type: p.type, hours: ov })
+    }
+  }
+
+  shabbatTotal = Math.round(shabbatTotal * 100) / 100
+  holidayTotal = Math.round(holidayTotal * 100) / 100
+  const normalHours = Math.round(Math.max(0, totalHours - shabbatTotal - holidayTotal) * 100) / 100
+
+  // Night shifts have a 7-hour legal workday (OT kicks in at hour 8 instead of 9)
+  const isNight = isNightShift(startDt, endDt)
+  const dr = isNight ? 7 : (settings.daily_regular_hours || 8)
+
+  // ── Weekday hours → regular / OT×1.25 / OT×1.5
+  let regular = 0, ot125 = 0, ot150 = 0
+  if (normalHours <= dr) {
+    regular = normalHours
+  } else if (normalHours <= dr + 2) {
+    regular = dr; ot125 = Math.round((normalHours - dr) * 100) / 100
+  } else {
+    regular = dr; ot125 = 2; ot150 = Math.round((normalHours - dr - 2) * 100) / 100
+  }
+
+  // ── Shabbat hours → ×1.5 (regular) / ×1.75 (OT first 2h) / ×2.0 (OT beyond)
+  // Israeli law: weekly rest day premium ×1.5 applies to all hours;
+  // overtime increments stack on top → ×1.75 and ×2.0
+  let shabbat_hours = 0, shab_ot175 = 0, shab_ot200 = 0
+  if (shabbatTotal <= dr) {
+    shabbat_hours = shabbatTotal
+  } else if (shabbatTotal <= dr + 2) {
+    shabbat_hours = dr
+    shab_ot175 = Math.round((shabbatTotal - dr) * 100) / 100
+  } else {
+    shabbat_hours = dr; shab_ot175 = 2
+    shab_ot200 = Math.round((shabbatTotal - dr - 2) * 100) / 100
+  }
+
+  // ── Holiday hours → same OT tier structure as Shabbat
+  let holiday_hours = 0, hol_ot175 = 0, hol_ot200 = 0
+  if (holidayTotal <= dr) {
+    holiday_hours = holidayTotal
+  } else if (holidayTotal <= dr + 2) {
+    holiday_hours = dr
+    hol_ot175 = Math.round((holidayTotal - dr) * 100) / 100
+  } else {
+    holiday_hours = dr; hol_ot175 = 2
+    hol_ot200 = Math.round((holidayTotal - dr - 2) * 100) / 100
+  }
+
+  // Combined ×1.75 and ×2.0 (Shabbat OT + Holiday OT)
+  const ot175 = Math.round((shab_ot175 + hol_ot175) * 100) / 100
+  const ot200 = Math.round((shab_ot200 + hol_ot200) * 100) / 100
+
+  return { totalHours, shabbatTotal, holidayTotal, shabbat_hours, holiday_hours, regular, ot125, ot150, ot175, ot200, isNight, detected }
+}
+
+// ─── Tax calculations (monthly, Israel 2026) ──────────────────────────────────
+const TAX_BRACKETS = [
+  {limit:7010,rate:.10},{limit:10060,rate:.14},{limit:19000,rate:.20},
+  {limit:25100,rate:.31},{limit:46690,rate:.35},{limit:60130,rate:.47},
+  {limit:Infinity,rate:.50}
+]
+
+function calcBL(gross, s) {
+  if (gross <= 0) return 0
+  const low  = Math.min(gross, s.bl_threshold) * s.bl_rate_low / 100
+  const high = Math.max(0, Math.min(gross, s.bl_max_income) - s.bl_threshold) * s.bl_rate_high / 100
+  return low + high
+}
+
+function calcIncomeTax(gross, s) {
+  let tax = 0, prev = 0
+  for (const {limit, rate} of TAX_BRACKETS) {
+    if (gross <= prev) break
+    tax += (Math.min(gross, limit) - prev) * rate
+    prev = limit
+  }
+  return Math.max(0, tax - s.tax_points * s.tax_point_value)
+}
+
+// ─── Entry-level gross calc ───────────────────────────────────────────────────
+function entryAshal(e, s) {
+  const hrs = (e.regular_hours||0)+(e.overtime_125_hours||0)+(e.overtime_150_hours||0)+(e.overtime_175_hours||0)+(e.overtime_200_hours||0)+(e.shabbat_hours||0)+(e.holiday_hours||0)
+  const thr = s.ashal_min_hours || 8
+  // ≥8h → 1st אש"ל | any hour over 8 → 2nd | >16h → 3rd
+  let count = 0
+  if (hrs >= thr)     count = 1
+  if (hrs > thr)      count = 2
+  if (hrs > thr * 2)  count = 3
+  return count * (s.ashal_amount || 0)
+}
+
+function entryTotalHours(e) {
+  return (e.regular_hours||0)+(e.overtime_125_hours||0)+(e.overtime_150_hours||0)+(e.overtime_175_hours||0)+(e.overtime_200_hours||0)+(e.shabbat_hours||0)+(e.holiday_hours||0)
+}
+
+function calcEntryGross(e, s) {
+  const totalHrs = entryTotalHours(e)
+  const breakDed = totalHrs > 6 ? 0.5 * s.base_hourly_rate : 0  // only if shift >6h
+  const lina    = e.has_lina        ? (s.lina_amount||0) : 0
+  const opBonus = e.has_op_bonus    ? (s.op_bonus_amount||500) : 0
+  const carPay  = e.has_company_car ? (s.company_car_rate||60) : 0
+  return (
+    (e.regular_hours||0)       * s.base_hourly_rate +
+    (e.overtime_125_hours||0)  * s.base_hourly_rate * 1.25 +
+    (e.overtime_150_hours||0)  * s.base_hourly_rate * 1.5 +
+    (e.overtime_175_hours||0)  * s.base_hourly_rate * 1.75 +
+    (e.overtime_200_hours||0)  * s.base_hourly_rate * 2.0 +
+    (e.shabbat_hours||0)       * s.base_hourly_rate * s.shabbat_rate +
+    (e.holiday_hours||0)       * s.base_hourly_rate * s.holiday_rate +
+    (e.driving_km||0)          * s.driving_km_rate +
+    (e.driving_hours||0)       * (s.driving_hourly_rate||0) +
+    (e.bonus||0) + entryAshal(e, s) + lina + opBonus + carPay
+    - breakDed
+  )
+}
+
+// ─── Monthly summary ──────────────────────────────────────────────────────────
+function calcSummary(entries, s) {
+  const t = {
+    regular_hours:0, overtime_125_hours:0, overtime_150_hours:0,
+    overtime_175_hours:0, overtime_200_hours:0,
+    shabbat_hours:0, holiday_hours:0, driving_km:0,
+    driving_hours:0, bonus:0, total_ashal:0, lina_count:0, op_bonus_count:0, company_car_days:0
+  }
+  entries.forEach(e => {
+    t.regular_hours       += e.regular_hours||0
+    t.overtime_125_hours  += e.overtime_125_hours||0
+    t.overtime_150_hours  += e.overtime_150_hours||0
+    t.overtime_175_hours  += e.overtime_175_hours||0
+    t.overtime_200_hours  += e.overtime_200_hours||0
+    t.shabbat_hours       += e.shabbat_hours||0
+    t.holiday_hours       += e.holiday_hours||0
+    t.driving_km          += e.driving_km||0
+    t.driving_hours       += e.driving_hours||0
+    t.bonus               += e.bonus||0
+    t.total_ashal         += entryAshal(e, s)
+    if (e.has_lina)        t.lina_count++
+    if (e.has_op_bonus)    t.op_bonus_count++
+    if (e.has_company_car) t.company_car_days++
+  })
+
+  const pay = {
+    // ── Hourly pay (pension/gemel base) ──
+    regular:      t.regular_hours      * s.base_hourly_rate,
+    overtime_125: t.overtime_125_hours * s.base_hourly_rate * 1.25,
+    overtime_150: t.overtime_150_hours * s.base_hourly_rate * 1.5,
+    overtime_175: t.overtime_175_hours * s.base_hourly_rate * 1.75,
+    overtime_200: t.overtime_200_hours * s.base_hourly_rate * 2.0,
+    shabbat:      t.shabbat_hours      * s.base_hourly_rate * s.shabbat_rate,
+    holiday:      t.holiday_hours      * s.base_hourly_rate * s.holiday_rate,
+    break_ded:   -(entries.filter(e => entryTotalHours(e) > 6).length * 0.5 * s.base_hourly_rate),
+    // ── Allowances & extras (not pensionable) ──
+    driving_km:    t.driving_km         * s.driving_km_rate,
+    driving_hours: t.driving_hours      * (s.driving_hourly_rate||0),
+    company_car:   t.company_car_days   * (s.company_car_rate||60),
+    bonus:        t.bonus,
+    ashal:        t.total_ashal,
+    lina:         t.lina_count         * (s.lina_amount||0),
+    op_bonus:     t.op_bonus_count     * (s.op_bonus_amount||500),
+  }
+
+  // Base hourly pay (used for pension & gemel calculation)
+  const base_pay = Math.max(0,
+    pay.regular + pay.overtime_125 + pay.overtime_150 +
+    pay.overtime_175 + pay.overtime_200 +
+    pay.shabbat + pay.holiday + pay.break_ded
+  )
+  const gross = Object.values(pay).reduce((a,b) => a+b, 0)
+
+  const ded = {
+    bituach_leumi:    calcBL(gross, s),                          // from gross
+    income_tax:       calcIncomeTax(gross, s),                   // from gross
+    health_ins:       gross * (s.health_ins_pct||0) / 100,      // from gross
+    pension_employee: base_pay * s.pension_employee_pct / 100,  // from base pay only
+    gemel:            base_pay * (s.gemel_pct||0) / 100,        // from base pay only
+  }
+  const total_ded = Object.values(ded).reduce((a,b) => a+b, 0)
+  const breakDays = entries.filter(e => entryTotalHours(e) > 6).length
+  const employer = {
+    pension:   base_pay * (s.employer_pension_pct||6.5) / 100,
+    severance: base_pay * (s.severance_pct||8.33)       / 100,
+  }
+  const total_employer = Object.values(employer).reduce((a,b) => a+b, 0)
+  return { totals:t, pay, gross, base_pay, breakDays, deductions:ded, total_deductions:total_ded, net: gross - total_ded, employer, total_employer }
+}
+
+// ─── Formatting ───────────────────────────────────────────────────────────────
+const fc  = n => '₪' + Number(n||0).toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2})
+const fh  = n => Number(n||0).toFixed(2)
+const cm  = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` }
+const today = () => new Date().toISOString().slice(0,10)
+
+function monthLabel(ym) {
+  const [y,m] = ym.split('-')
+  return new Date(y,m-1,1).toLocaleString('he-IL',{month:'long',year:'numeric'})
+}
+function shiftMonth(ym, d) {
+  const [y,m] = ym.split('-').map(Number)
+  const nd = new Date(y,m-1+d,1)
+  return `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}`
+}
+function dayLabel(ds) {
+  return new Date(ds+'T00:00:00').toLocaleDateString('he-IL',{weekday:'short',day:'numeric',month:'short'})
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+let toastT
+function showToast(msg, isErr) {
+  const el = document.getElementById('toast')
+  el.textContent = msg; el.className = isErr ? 'err' : 'ok'; el.style.display = 'block'
+  clearTimeout(toastT); toastT = setTimeout(() => el.style.display='none', 2600)
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let settings = { ...DEFAULTS }
+let editId = null
+let monMonth = cm()
+let stubMonth = cm()
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
+  document.getElementById('page-'+page).classList.add('active')
+  const nb = document.getElementById('nb-'+page)
+  if (nb) nb.classList.add('active')
+  if (page==='dashboard') loadDashboard()
+  if (page==='monthly')   loadMonthly()
+  if (page==='paystub')   loadStub()
+  if (page==='settings')  loadSettingsPage()
+  window.scrollTo(0,0)
+}
+window.navigate = navigate
+
+function openNewEntry() {
+  editId = null
+  document.getElementById('log-title').textContent = 'רישום יום עבודה'
+  document.getElementById('log-save-btn').textContent = 'שמור רישום'
+  document.getElementById('log-delete-btn').style.display = 'none'
+  document.getElementById('log-err').className = 'err-banner'
+  document.getElementById('f-date').value = today()
+  document.getElementById('f-start-time').value = ''
+  document.getElementById('f-end-time').value = ''
+  document.getElementById('detect-box').style.display = 'none'
+  ;['f-reg','f-ot125','f-ot150','f-ot175','f-ot200','f-shab','f-hol','f-dkm','f-dhrs','f-bonus'].forEach(id => document.getElementById(id).value='')
+  document.getElementById('f-notes').value = ''
+  document.getElementById('f-lina').checked = false
+  document.getElementById('f-op-bonus').checked = false
+  document.getElementById('f-company-car').checked = false
+  updateLinaLabel()
+  navigate('log')
+}
+window.openNewEntry = openNewEntry
+
+async function openEditEntry(id) {
+  editId = id
+  const e = await loadEntry(id)
+  if (!e) return
+  document.getElementById('log-title').textContent = 'עריכת רישום'
+  document.getElementById('log-save-btn').textContent = 'שמור שינויים'
+  document.getElementById('log-delete-btn').style.display = 'block'
+  document.getElementById('log-err').className = 'err-banner'
+  document.getElementById('f-date').value = e.date
+  document.getElementById('f-start-time').value = e.start_time || ''
+  document.getElementById('f-end-time').value = e.end_time || ''
+  document.getElementById('detect-box').style.display = 'none'
+  document.getElementById('f-reg').value    = e.regular_hours||''
+  document.getElementById('f-ot125').value  = e.overtime_125_hours||''
+  document.getElementById('f-ot150').value  = e.overtime_150_hours||''
+  document.getElementById('f-ot175').value  = e.overtime_175_hours||''
+  document.getElementById('f-ot200').value  = e.overtime_200_hours||''
+  document.getElementById('f-shab').value   = e.shabbat_hours||''
+  document.getElementById('f-hol').value    = e.holiday_hours||''
+  document.getElementById('f-dkm').value    = e.driving_km||''
+  document.getElementById('f-dhrs').value   = e.driving_hours||''
+  document.getElementById('f-bonus').value  = e.bonus||''
+  document.getElementById('f-notes').value  = e.notes||''
+  document.getElementById('f-lina').checked        = !!e.has_lina
+  document.getElementById('f-op-bonus').checked    = !!e.has_op_bonus
+  document.getElementById('f-company-car').checked = !!e.has_company_car
+  updateLinaLabel()
+  navigate('log')
+}
+window.openEditEntry = openEditEntry
+
+// ─── Time auto-detection ──────────────────────────────────────────────────────
+function updateLinaLabel() {
+  document.getElementById('lina-amt-label').textContent = fc(settings.lina_amount || 300)
+}
+
+let detectTimer = null
+function onTimeChange() {
+  clearTimeout(detectTimer)
+  detectTimer = setTimeout(runAutoDetect, 500)
+}
+
+async function runAutoDetect() {
+  const date      = document.getElementById('f-date').value
+  const startTime = document.getElementById('f-start-time').value
+  const endTime   = document.getElementById('f-end-time').value
+  const box       = document.getElementById('detect-box')
+  const info      = document.getElementById('detect-info')
+
+  if (!date || !startTime || !endTime) { box.style.display='none'; return }
+  if (!normalizeTime(startTime) || !normalizeTime(endTime)) {
+    box.style.display='block'; box.className='detect-box err'
+    info.textContent = 'פורמט שעה: HH:MM (לדוגמה 08:30 או 16:45)'
+    return
+  }
+
+  box.style.display='block'; box.className='detect-box'
+  info.textContent = '⏳ מחשב ומאתר שבת/חגים...'
+
+  const result = await autoCalcHours(date, startTime, endTime)
+
+  if (!result || result.error) {
+    box.className='detect-box err'
+    info.textContent = result?.error || 'שגיאה בחישוב'
+    return
+  }
+
+  // Fill fields with computed values
+  document.getElementById('f-reg').value   = result.regular        || ''
+  document.getElementById('f-ot125').value = result.ot125          || ''
+  document.getElementById('f-ot150').value = result.ot150          || ''
+  document.getElementById('f-ot175').value = result.ot175          || ''
+  document.getElementById('f-ot200').value = result.ot200          || ''
+  document.getElementById('f-shab').value  = result.shabbat_hours  || ''
+  document.getElementById('f-hol').value   = result.holiday_hours  || ''
+
+  box.className = 'detect-box ok'
+  // Show full breakdown so user can see exactly how hours were split
+  const s = settings
+  const parts = []
+  if (result.isNight)       parts.push('🌙 משמרת לילה')
+  if (result.regular)       parts.push(`${result.regular.toFixed(2)} בסיס`)
+  if (result.ot125)         parts.push(`${result.ot125.toFixed(2)} ×1.25`)
+  if (result.ot150)         parts.push(`${result.ot150.toFixed(2)} ×1.5`)
+  if (result.shabbat_hours) parts.push(`${result.shabbat_hours.toFixed(2)} שבת ×${s.shabbat_rate}`)
+  if (result.holiday_hours) parts.push(`${result.holiday_hours.toFixed(2)} חג ×${s.holiday_rate}`)
+  if (result.ot175)         parts.push(`${result.ot175.toFixed(2)} ×1.75`)
+  if (result.ot200)         parts.push(`${result.ot200.toFixed(2)} ×2.0`)
+  const detNames = [...new Set(result.detected.map(d => d.name))].join(', ')
+  const hasBreak = result.totalHours > 6
+  let msg = `✓ ${result.totalHours.toFixed(2)} שעות — ${parts.join(' | ')}`
+  if (detNames) msg += ` (זוהו: ${detNames})`
+  if (hasBreak) msg += ' · הפסקה מנוכה'
+  info.textContent = msg
+}
+window.onTimeChange = onTimeChange
+
+// ─── Save / Delete ────────────────────────────────────────────────────────────
+async function saveEntry(ev) {
+  ev.preventDefault()
+  const errEl = document.getElementById('log-err')
+  errEl.className = 'err-banner'
+  const btn = document.getElementById('log-save-btn')
+  const date = document.getElementById('f-date').value
+  if (!date) {
+    errEl.textContent = 'נא לבחור תאריך'
+    errEl.className = 'err-banner show'
+    return
+  }
+  btn.disabled = true; btn.textContent = 'שומר...'
+  const n = id => parseFloat(document.getElementById(id).value)||0
+  const data = {
+    date,
+    month: date.slice(0,7),
+    start_time:   document.getElementById('f-start-time').value || null,
+    end_time:     document.getElementById('f-end-time').value || null,
+    regular_hours:        n('f-reg'),
+    overtime_125_hours:   n('f-ot125'),
+    overtime_150_hours:   n('f-ot150'),
+    overtime_175_hours:   n('f-ot175'),
+    overtime_200_hours:   n('f-ot200'),
+    shabbat_hours:        n('f-shab'),
+    holiday_hours:        n('f-hol'),
+    driving_km:           n('f-dkm'),
+    driving_hours:        n('f-dhrs'),
+    bonus:                n('f-bonus'),
+    notes:   document.getElementById('f-notes').value,
+    has_lina:        document.getElementById('f-lina').checked,
+    has_op_bonus:    document.getElementById('f-op-bonus').checked,
+    has_company_car: document.getElementById('f-company-car').checked,
+  }
+  try {
+    await saveEntryDB(editId||date, data)
+    showToast(editId ? 'רישום עודכן ✓' : 'רישום נשמר ✓')
+    navigate('monthly')
+  } catch(err) {
+    errEl.textContent = err.message; errEl.className='err-banner show'
+  } finally {
+    btn.disabled=false; btn.textContent=editId?'שמור שינויים':'שמור רישום'
+  }
+}
+window.saveEntry = saveEntry
+
+async function deleteEntry() {
+  if (!editId) return
+  if (!confirm('למחוק את הרישום הזה?')) return
+  await deleteEntryDB(editId)
+  showToast('רישום נמחק')
+  navigate('monthly')
+}
+window.deleteEntry = deleteEntry
+
+// ─── Shabbat Times Widget ─────────────────────────────────────────────────────
+const SHAB_CACHE_KEY = 'st_shabbat_cache'
+
+async function fetchShabbatTimes() {
+  // Return cached data if still valid (expires 2h after Havdalah)
+  try {
+    const raw = localStorage.getItem(SHAB_CACHE_KEY)
+    if (raw) {
+      const c = JSON.parse(raw)
+      if (Date.now() < c.expiry) return c.data
+    }
+  } catch(e) {}
+
+  try {
+    const resp = await fetch('https://www.hebcal.com/shabbat/?cfg=json&geonameid=293397&M=on&a=on')
+      .then(r => r.json())
+
+    let candles = null, havdalah = null, holidayHebrew = null
+    for (const item of (resp.items || [])) {
+      if (item.category === 'candles' && !candles) {
+        candles = item.date
+      } else if (item.category === 'holiday' && item.subcat === 'major' && candles && !havdalah) {
+        holidayHebrew = item.hebrew || null
+      } else if (item.category === 'havdalah' && !havdalah) {
+        havdalah = item.date
+      }
+    }
+
+    if (!candles || !havdalah) return null
+
+    const data = { candles, havdalah, holidayHebrew }
+    // Cache expires 2h after Havdalah — next open automatically fetches next week
+    const expiry = new Date(havdalah).getTime() + 2 * 3600000
+    try { localStorage.setItem(SHAB_CACHE_KEY, JSON.stringify({ data, expiry })) } catch(e) {}
+    return data
+  } catch(e) {
+    console.warn('Shabbat times fetch failed:', e)
+    return null
+  }
+}
+
+
+async function loadShabbatCard() {
+  const el = document.getElementById('shab-card')
+  if (!el) return
+  const data = await fetchShabbatTimes()
+  if (!data) { el.textContent = ''; return }
+  const fmt = iso => new Date(iso).toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit', weekday:'short' })
+  const label = data.holidayHebrew ? `שבת — ${data.holidayHebrew}` : 'שבת'
+  el.textContent = `🕯 ${label}: כניסה ${fmt(data.candles)} · יציאה ${fmt(data.havdalah)}`
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  loadShabbatCard() // fire-and-forget — fetches/caches Shabbat times independently
+  document.getElementById('dash-month-label').textContent = monthLabel(cm())
+  document.getElementById('dash-loading').style.display='flex'
+  document.getElementById('dash-entries').innerHTML=''
+  document.getElementById('dash-empty').style.display='none'
+  document.getElementById('dash-view-all').style.display='none'
+  document.getElementById('dash-breakdown').style.display='none'
+
+  const s = settings
+  let entries
+  try { entries = await loadEntries(cm()) }
+  catch(err) {
+    document.getElementById('dash-loading').style.display='none'
+    document.getElementById('dash-empty').style.display='block'
+    document.getElementById('dash-empty').querySelector('p').innerHTML =
+      `שגיאה בטעינת נתונים.<br><small style="color:var(--danger)">${err.message||'בדוק הגדרות Firebase'}</small>`
+    return
+  }
+  const sum = calcSummary(entries, s)
+
+  document.getElementById('dash-net').textContent   = fc(sum.net)
+  document.getElementById('dash-gross').textContent = fc(sum.gross)
+  document.getElementById('dash-ded').textContent   = fc(sum.total_deductions)
+  document.getElementById('dash-ded2').textContent  = fc(sum.total_deductions)
+  document.getElementById('dash-bonuses').textContent = fc((sum.totals.bonus||0)+(sum.totals.total_ashal||0)+(sum.totals.lina_count*(s.lina_amount||0)))
+  document.getElementById('dash-days').textContent  = entries.length
+  const totalHrs = sum.totals.regular_hours+sum.totals.overtime_125_hours+sum.totals.overtime_150_hours+sum.totals.overtime_175_hours+sum.totals.overtime_200_hours+sum.totals.shabbat_hours+sum.totals.holiday_hours
+  document.getElementById('dash-hours').textContent = totalHrs.toFixed(1)
+
+  const T=sum.totals, P=sum.pay
+  const bkData = [
+    [T.regular_hours>0,      'שעות בסיס',    `${fh(T.regular_hours)} שע׳`, fc(P.regular)],
+    [T.overtime_125_hours>0, 'שע״נ ×1.25',     `${fh(T.overtime_125_hours)} שע׳`, fc(P.overtime_125)],
+    [T.overtime_150_hours>0, 'שע״נ ×1.5',      `${fh(T.overtime_150_hours)} שע׳`, fc(P.overtime_150)],
+    [T.overtime_175_hours>0, 'שע״נ ×1.75',     `${fh(T.overtime_175_hours)} שע׳`, fc(P.overtime_175)],
+    [T.overtime_200_hours>0, 'שע״נ ×2.0',      `${fh(T.overtime_200_hours)} שע׳`, fc(P.overtime_200)],
+    [T.shabbat_hours>0,      'שעות שבת',       `${fh(T.shabbat_hours)} שע׳`, fc(P.shabbat)],
+    [T.holiday_hours>0,      'שעות חג',        `${fh(T.holiday_hours)} שע׳`, fc(P.holiday)],
+    [T.driving_km>0,         'נסיעות רכב פרטי',`${T.driving_km.toFixed(1)} ק״מ`, fc(P.driving_km)],
+    [T.driving_hours>0,      'שעות נסיעה',     `${T.driving_hours.toFixed(2)} שע׳`, fc(P.driving_hours)],
+    [T.company_car_days>0,   'רכב חברה',       `${T.company_car_days} ימים`, fc(P.company_car)],
+    [T.total_ashal>0,        'אש״ל',           '', fc(P.ashal)],
+    [T.lina_count>0,         'לינה',           `${T.lina_count}×`, fc(P.lina)],
+    [T.op_bonus_count>0,     'בונוס מבצעי',   `${T.op_bonus_count}×`, fc(P.op_bonus)],
+    [sum.breakDays > 0,      'הפסקה (ניכוי)',  `${sum.breakDays} × 30 דק׳`, fc(P.break_ded)],
+  ].filter(r=>r[0])
+
+  const bkCard = document.getElementById('dash-breakdown')
+  const bkRows = document.getElementById('dash-breakdown-rows')
+  bkRows.innerHTML = ''
+  if (bkData.length) {
+    bkCard.style.display='block'
+    bkData.forEach(([,label,detail,val]) => {
+      const neg = parseFloat(val.replace(/[^0-9.-]/g,''))<0
+      bkRows.innerHTML += `<div class="stub-row">
+        <span>${label} <span class="fs12 text3">${detail}</span></span>
+        <span style="font-weight:700;color:${neg?'var(--danger)':'var(--text2)'}">${val}</span>
+      </div>`
+    })
+  }
+
+  document.getElementById('dash-loading').style.display='none'
+  const ul = document.getElementById('dash-entries')
+  const recent = [...entries].reverse().slice(0,5)
+
+  if (!recent.length) {
+    document.getElementById('dash-empty').style.display='block'
+  } else {
+    recent.forEach(e => {
+      const gross = calcEntryGross(e, s)
+      const hrs   = (e.regular_hours||0)+(e.overtime_125_hours||0)+(e.overtime_150_hours||0)+(e.overtime_175_hours||0)+(e.overtime_200_hours||0)+(e.shabbat_hours||0)+(e.holiday_hours||0)
+      const detail = [
+        hrs>0 && `${hrs.toFixed(1)} שע׳`,
+        (e.overtime_125_hours||0)+(e.overtime_150_hours||0)+(e.overtime_175_hours||0)+(e.overtime_200_hours||0)>0 && 'שע״נ',
+        e.shabbat_hours>0 && 'שבת',
+        e.holiday_hours>0 && 'חג',
+        e.has_lina && 'לינה',
+        e.has_op_bonus && 'בונוס מבצעי',
+        e.has_company_car && 'רכב חברה',
+        e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
+        e.bonus>0 && `+${fc(e.bonus)}`
+      ].filter(Boolean).join(' · ')
+      ul.innerHTML += `<li class="entry-item" onclick="openEditEntry('${e.id}')">
+        <div><div class="entry-date">${dayLabel(e.date)}</div><div class="entry-detail">${detail}</div></div>
+        <div class="entry-pay">${fc(gross)}</div>
+      </li>`
+    })
+    if (entries.length>5) document.getElementById('dash-view-all').style.display='block'
+  }
+}
+
+// ─── Monthly ──────────────────────────────────────────────────────────────────
+async function loadMonthly() {
+  document.getElementById('mon-label').textContent = monthLabel(monMonth)
+  document.getElementById('mon-prev').disabled = false
+  document.getElementById('mon-next').disabled = monMonth >= cm()
+  document.getElementById('mon-loading').style.display='flex'
+  document.getElementById('mon-entries').innerHTML=''
+  document.getElementById('mon-empty').style.display='none'
+
+  const s = settings
+  let entries
+  try { entries = await loadEntries(monMonth) }
+  catch(err) {
+    document.getElementById('mon-loading').style.display='none'
+    document.getElementById('mon-empty').style.display='block'
+    document.getElementById('mon-empty-text').textContent = 'שגיאה: ' + (err.message||'בדוק הגדרות Firebase')
+    return
+  }
+  const sum = calcSummary(entries, s)
+
+  document.getElementById('mon-gross').textContent = fc(sum.gross)
+  document.getElementById('mon-net').textContent   = fc(sum.net)
+  document.getElementById('mon-days').textContent  = `${entries.length} ימים`
+  const totalHrs = sum.totals.regular_hours+sum.totals.overtime_125_hours+sum.totals.overtime_150_hours+sum.totals.overtime_175_hours+sum.totals.overtime_200_hours+sum.totals.shabbat_hours+sum.totals.holiday_hours
+  document.getElementById('mon-totalhrs').textContent = `${totalHrs.toFixed(1)} שעות סה״כ`
+  document.getElementById('mon-loading').style.display='none'
+
+  const ul = document.getElementById('mon-entries')
+  if (!entries.length) {
+    const el = document.getElementById('mon-empty')
+    el.style.display='block'
+    document.getElementById('mon-empty-text').textContent = `אין רישומים ל${monthLabel(monMonth)}.`
+  } else {
+    ;[...entries].reverse().forEach(e => {
+      const gross = calcEntryGross(e, s)
+      const hrs = (e.regular_hours||0)+(e.overtime_125_hours||0)+(e.overtime_150_hours||0)+(e.overtime_175_hours||0)+(e.overtime_200_hours||0)+(e.shabbat_hours||0)+(e.holiday_hours||0)
+      const tags = [
+        (e.overtime_125_hours||0)+(e.overtime_150_hours||0)+(e.overtime_175_hours||0)+(e.overtime_200_hours||0)>0 && '<span class="tag to">שע״נ</span>',
+        e.shabbat_hours>0      && '<span class="tag tb">שבת</span>',
+        e.holiday_hours>0      && '<span class="tag tb">חג</span>',
+        (e.driving_km>0||e.driving_hours>0) && '<span class="tag tg">נסיעות</span>',
+        e.has_company_car      && '<span class="tag tg">רכב חברה</span>',
+        e.has_lina             && '<span class="tag tp">לינה</span>',
+        e.has_op_bonus         && '<span class="tag tv">בונוס מבצעי</span>',
+        e.bonus>0              && '<span class="tag tg">בונוס</span>'
+      ].filter(Boolean).join('')
+      const detail = [
+        hrs>0 && `${hrs.toFixed(1)} שע׳`,
+        e.driving_km>0    && `${e.driving_km} ק״מ`,
+        e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
+        e.notes && e.notes
+      ].filter(Boolean).join(' · ')
+      ul.innerHTML += `<li class="swipe-wrap">
+        <button class="swipe-del" data-delid="${e.id}">🗑<span>מחק</span></button>
+        <div class="entry-item" data-id="${e.id}">
+          <div style="flex:1;min-width:0">
+            <div class="row" style="gap:4px;flex-wrap:wrap"><div class="entry-date">${dayLabel(e.date)}</div>${tags}</div>
+            <div class="entry-detail">${detail}</div>
+          </div>
+          <div class="entry-pay">${fc(gross)}</div>
+        </div>
+      </li>`
+    })
+    attachSwipeHandlers(ul)
+  }
+}
+
+// ─── Swipe-to-delete ─────────────────────────────────────────────────────────
+let _openSwipeItem = null
+
+function _snapBack(item) {
+  if (!item) return
+  item.style.transition = 'transform .2s ease'
+  item.style.transform  = 'translateX(0)'
+  if (_openSwipeItem === item) _openSwipeItem = null
+}
+
+function attachSwipeHandlers(ul) {
+  if (ul._swipeAttached) return
+  ul._swipeAttached = true
+  let touch = null
+
+  ul.addEventListener('touchstart', ev => {
+    if (_openSwipeItem && !ev.target.closest('.swipe-del')) _snapBack(_openSwipeItem)
+    const item = ev.target.closest('.entry-item')
+    if (!item) return
+    touch = { item, x0: ev.touches[0].clientX, y0: ev.touches[0].clientY, horiz: null, done: false }
+    item.style.transition = 'none'
+  }, { passive: true })
+
+  ul.addEventListener('touchmove', ev => {
+    if (!touch || touch.done) return
+    const dx = ev.touches[0].clientX - touch.x0
+    const dy = ev.touches[0].clientY - touch.y0
+    if (touch.horiz === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5))
+      touch.horiz = Math.abs(dx) >= Math.abs(dy)
+    if (!touch.horiz) { touch.done = true; _snapBack(touch.item); touch = null; return }
+    ev.preventDefault()
+    touch.item.style.transform = `translateX(${Math.max(-72, Math.min(0, dx))}px)`
+  }, { passive: false })
+
+  ul.addEventListener('touchend', ev => {
+    if (!touch) return
+    const dx = ev.changedTouches[0].clientX - touch.x0
+    touch.item.style.transition = 'transform .2s ease'
+    if (dx < -36) { touch.item.style.transform = 'translateX(-72px)'; _openSwipeItem = touch.item }
+    else          { touch.item.style.transform = 'translateX(0)';     _openSwipeItem = null }
+    touch = null
+  }, { passive: true })
+
+  ul.addEventListener('click', async ev => {
+    const del = ev.target.closest('.swipe-del')
+    if (del) {
+      ev.stopPropagation()
+      await deleteEntryDB(del.dataset.delid)
+      _openSwipeItem = null
+      showToast('רישום נמחק')
+      loadMonthly()
+      return
+    }
+    const item = ev.target.closest('.entry-item')
+    if (!item) return
+    const tx = new DOMMatrix(getComputedStyle(item).transform).m41
+    if (Math.abs(tx) > 5) { _snapBack(item) } else { openEditEntry(item.dataset.id) }
+  })
+}
+
+function monthShift(d) {
+  const next = shiftMonth(monMonth, d)
+  if (next > cm()) return
+  monMonth = next; loadMonthly()
+}
+window.monthShift = monthShift
+
+// ─── Pay Stub ─────────────────────────────────────────────────────────────────
+async function loadStub() {
+  document.getElementById('stub-label').textContent = monthLabel(stubMonth)
+  document.getElementById('stub-next').disabled = stubMonth >= cm()
+  document.getElementById('stub-loading').style.display='flex'
+  document.getElementById('stub-content').innerHTML=''
+  document.getElementById('stub-empty').style.display='none'
+
+  const s = settings
+  let entries
+  try { entries = await loadEntries(stubMonth) }
+  catch(err) {
+    document.getElementById('stub-loading').style.display='none'
+    document.getElementById('stub-empty').style.display='block'
+    document.getElementById('stub-empty').querySelector('p').textContent = 'שגיאה: ' + (err.message||'בדוק הגדרות Firebase')
+    return
+  }
+  document.getElementById('stub-loading').style.display='none'
+  if (!entries.length) { document.getElementById('stub-empty').style.display='block'; return }
+
+  const sum = calcSummary(entries, s)
+  const T=sum.totals, P=sum.pay, D=sum.deductions
+
+  // ── Base hourly rows (pension & gemel apply to this) ──
+  const baseRows = [
+    [T.regular_hours>0,      `שעות בסיס (${fh(T.regular_hours)} × ₪${s.base_hourly_rate})`, P.regular],
+    [T.overtime_125_hours>0, `שע״נ ×1.25 (${fh(T.overtime_125_hours)} שע׳)`, P.overtime_125],
+    [T.overtime_150_hours>0, `שע״נ ×1.5 (${fh(T.overtime_150_hours)} שע׳)`, P.overtime_150],
+    [T.overtime_175_hours>0, `שע״נ ×1.75 (${fh(T.overtime_175_hours)} שע׳)`, P.overtime_175],
+    [T.overtime_200_hours>0, `שע״נ ×2.0 (${fh(T.overtime_200_hours)} שע׳)`, P.overtime_200],
+    [T.shabbat_hours>0,      `שעות שבת ×${s.shabbat_rate} (${fh(T.shabbat_hours)} שע׳)`, P.shabbat],
+    [T.holiday_hours>0,      `שעות חג ×${s.holiday_rate} (${fh(T.holiday_hours)} שע׳)`, P.holiday],
+    [sum.breakDays > 0,      `הפסקה (30 דק׳ × ${sum.breakDays} ימים)`, P.break_ded],
+  ].filter(r=>r[0])
+
+  // ── Allowances & extras (not pensionable) ──
+  const extRows = [
+    [T.driving_km>0,       `נסיעות רכב פרטי — ${T.driving_km.toFixed(1)} ק״מ × ₪${s.driving_km_rate}`, P.driving_km],
+    [T.driving_hours>0,   `שעות נסיעה — ${T.driving_hours.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||0}`, P.driving_hours],
+    [T.company_car_days>0, `רכב חברה — ${T.company_car_days} ימים × ₪${s.company_car_rate||60}`, P.company_car],
+    [T.bonus>0,            'בונוסים', P.bonus],
+    [T.total_ashal>0,      `אש״ל (${Math.round(T.total_ashal/(s.ashal_amount||1))}× ₪${s.ashal_amount})`, P.ashal],
+    [T.lina_count>0,       `לינה (${T.lina_count}× ₪${s.lina_amount})`, P.lina],
+    [T.op_bonus_count>0,   `בונוס מבצעי (${T.op_bonus_count}× ₪${s.op_bonus_amount||500})`, P.op_bonus],
+  ].filter(r=>r[0])
+
+  // Effective rate info for display
+  const effBL  = sum.gross>0 ? (D.bituach_leumi/sum.gross*100).toFixed(2) : '0.00'
+  const effTax = sum.gross>0 ? (D.income_tax/sum.gross*100).toFixed(2)    : '0.00'
+  const pensionNote = `<span style="font-size:11px;color:var(--text3)"> (מחושב על שכר שעות ${fc(sum.base_pay)})</span>`
+
+  document.getElementById('stub-content').innerHTML = `
+  <div class="stub-head">
+    <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">תלוש שכר</div>
+    <div style="font-size:24px;font-weight:900;letter-spacing:-0.5px">${monthLabel(stubMonth)}</div>
+    <div style="margin-top:14px;display:flex;justify-content:space-between">
+      <div><div style="font-size:11px;opacity:.65">שכר שעתי</div><div style="font-weight:700">₪${s.base_hourly_rate}/שע׳</div></div>
+      <div style="text-align:start"><div style="font-size:11px;opacity:.65">ימי עבודה</div><div style="font-weight:700">${entries.length}</div></div>
+    </div>
+  </div>
+  <div class="stub-sec">
+    <div class="stub-sec-title">שכר שעות</div>
+    ${baseRows.map(([,label,val])=>`
+      <div class="stub-row${val<0?' neg':''}">
+        <span>${label}</span>
+        <span class="sv" style="font-weight:700">${val<0?'-':''}${fc(Math.abs(val))}</span>
+      </div>`).join('')}
+    <div class="stub-row total"><span>סה״כ שכר שעות</span><span>${fc(sum.base_pay)}</span></div>
+  </div>
+  ${extRows.length ? `<div class="stub-sec">
+    <div class="stub-sec-title">תוספות</div>
+    ${extRows.map(([,label,val])=>`
+      <div class="stub-row">
+        <span>${label}</span>
+        <span class="sv" style="font-weight:700">${fc(val)}</span>
+      </div>`).join('')}
+  </div>` : ''}
+  <div class="stub-sec">
+    <div class="stub-row total"><span>ברוטו</span><span>${fc(sum.gross)}</span></div>
+  </div>
+  <div class="stub-sec">
+    <div class="stub-sec-title">ניכויים</div>
+    <div class="stub-row ded"><span>ביטוח לאומי <span style="font-size:11px;color:var(--text3)">(שיעור אפקטיבי ${effBL}%)</span></span><span class="sv">-${fc(D.bituach_leumi)}</span></div>
+    ${D.health_ins>0 ? `<div class="stub-row ded"><span>ביטוח בריאות (${s.health_ins_pct}%)</span><span class="sv">-${fc(D.health_ins)}</span></div>` : ''}
+    <div class="stub-row ded"><span>מס הכנסה <span style="font-size:11px;color:var(--text3)">(שיעור אפקטיבי ${effTax}%)</span></span><span class="sv">-${fc(D.income_tax)}</span></div>
+    <div class="stub-row ded"><span>פנסיה עובד (${s.pension_employee_pct}%)${pensionNote}</span><span class="sv">-${fc(D.pension_employee)}</span></div>
+    ${D.gemel>0 ? `<div class="stub-row ded"><span>קרן השתלמות (${s.gemel_pct}%)${pensionNote}</span><span class="sv">-${fc(D.gemel)}</span></div>` : ''}
+    <div class="stub-row total ded"><span>סה״כ ניכויים</span><span class="sv">-${fc(sum.total_deductions)}</span></div>
+  </div>
+  <div class="stub-sec" style="border-top:2px solid var(--border2)">
+    <div class="stub-row" style="padding-top:6px">
+      <span style="font-size:18px;font-weight:800">שכר נטו</span>
+      <span class="sv-net">${fc(sum.net)}</span>
+    </div>
+  </div>
+  <div class="stub-sec" style="opacity:.85">
+    <div class="stub-sec-title" style="color:var(--text3)">הפרשות מעסיק <span style="font-size:10px;font-weight:400">(לידיעה — אינן מנוכות מהנטו)</span></div>
+    <div class="stub-row"><span>פנסיה מעסיק (${s.employer_pension_pct||6.5}%)${pensionNote}</span><span class="sv" style="color:var(--success)">+${fc(sum.employer.pension)}</span></div>
+    <div class="stub-row"><span>פיצויים (${s.severance_pct||8.33}%)${pensionNote}</span><span class="sv" style="color:var(--success)">+${fc(sum.employer.severance)}</span></div>
+    <div class="stub-row total"><span>סה״כ עלות מעסיק לחודש זה</span><span>${fc(sum.gross + sum.total_employer)}</span></div>
+  </div>`
+}
+
+function stubMonthShift(d) {
+  const next = shiftMonth(stubMonth, d)
+  if (next > cm()) return
+  stubMonth = next; loadStub()
+}
+window.stubMonthShift = stubMonthShift
+
+// ─── Settings page ────────────────────────────────────────────────────────────
+function loadSettingsPage() {
+  const s = settings
+  document.getElementById('s-base').value       = s.base_hourly_rate
+  document.getElementById('s-shab').value       = s.shabbat_rate
+  document.getElementById('s-hol').value        = s.holiday_rate
+  document.getElementById('s-daily-hrs').value  = s.daily_regular_hours
+  document.getElementById('s-dkm').value        = s.driving_km_rate
+  document.getElementById('s-dhrs').value       = s.driving_hourly_rate||0
+  document.getElementById('s-company-car').value = s.company_car_rate
+  document.getElementById('s-ashal-amt').value  = s.ashal_amount
+  document.getElementById('s-ashal-hrs').value  = s.ashal_min_hours
+  document.getElementById('s-lina').value       = s.lina_amount
+  document.getElementById('s-op-bonus').value   = s.op_bonus_amount
+  document.getElementById('s-bl-low').value     = s.bl_rate_low
+  document.getElementById('s-bl-thr').value     = s.bl_threshold
+  document.getElementById('s-bl-high').value    = s.bl_rate_high
+  document.getElementById('s-bl-max').value     = s.bl_max_income
+  document.getElementById('s-tax-pts').value    = s.tax_points
+  document.getElementById('s-tax-ptval').value  = s.tax_point_value
+  document.getElementById('s-pen').value        = s.pension_employee_pct
+  document.getElementById('s-gemel').value      = s.gemel_pct
+  document.getElementById('s-health').value     = s.health_ins_pct
+  document.getElementById('s-emp-pen').value    = s.employer_pension_pct ?? 6.5
+  document.getElementById('s-severance').value  = s.severance_pct ?? 8.33
+  document.getElementById('storage-mode-text').textContent = useFirebase
+    ? 'מסונכרן בין מכשירים באמצעות Firebase.'
+    : 'נשמר רק בדפדפן הזה (אחסון מקומי).'
+}
+
+async function saveSettings(ev) {
+  ev.preventDefault()
+  const btn = document.getElementById('settings-save-btn')
+  btn.disabled=true; btn.textContent='שומר...'
+  const g = id => parseFloat(document.getElementById(id).value)||0
+  const data = {
+    base_hourly_rate:    g('s-base'),
+    shabbat_rate:        g('s-shab'),
+    holiday_rate:        g('s-hol'),
+    daily_regular_hours: g('s-daily-hrs'),
+    driving_km_rate:     g('s-dkm'),
+    driving_hourly_rate: g('s-dhrs'),
+    company_car_rate:    g('s-company-car'),
+    ashal_amount:        g('s-ashal-amt'),
+    ashal_min_hours:     g('s-ashal-hrs'),
+    lina_amount:         g('s-lina'),
+    op_bonus_amount:     g('s-op-bonus'),
+    bl_rate_low:         g('s-bl-low'),
+    bl_threshold:        g('s-bl-thr'),
+    bl_rate_high:        g('s-bl-high'),
+    bl_max_income:       g('s-bl-max'),
+    tax_points:          g('s-tax-pts'),
+    tax_point_value:     g('s-tax-ptval'),
+    pension_employee_pct:g('s-pen'),
+    gemel_pct:           g('s-gemel'),
+    health_ins_pct:      g('s-health'),
+    employer_pension_pct:g('s-emp-pen'),
+    severance_pct:       g('s-severance')
+  }
+  try {
+    await saveSettingsDB(data)
+    settings = data
+    showToast('הגדרות נשמרו ✓')
+  } catch(err) { showToast('שגיאה: '+err.message, true) }
+  finally { btn.disabled=false; btn.textContent='שמור הגדרות' }
+}
+window.saveSettings = saveSettings
+
+function resetStorage() {
+  if (confirm('לאפס את הגדרות האחסון ולטעון מחדש?')) {
+    localStorage.removeItem('st_mode')
+    localStorage.removeItem('st_fbConfig')
+    location.reload()
+  }
+}
+window.resetStorage = resetStorage
+
+// ─── Setup ────────────────────────────────────────────────────────────────────
+let setupMode = 'local'
+
+function selectSetup(mode) {
+  setupMode = mode
+  document.getElementById('opt-local').classList.toggle('sel', mode==='local')
+  document.getElementById('opt-firebase').classList.toggle('sel', mode==='firebase')
+  document.getElementById('fb-form').classList.toggle('show', mode==='firebase')
+}
+window.selectSetup = selectSetup
+
+async function startApp() {
+  const errEl = document.getElementById('setup-err')
+  errEl.className = 'err-banner'
+  if (setupMode === 'firebase') {
+    const apiKey     = document.getElementById('fb-apiKey').value.trim()
+    const projectId  = document.getElementById('fb-projectId').value.trim()
+    const appId      = document.getElementById('fb-appId').value.trim()
+    if (!apiKey||!projectId||!appId) {
+      errEl.textContent='אנא מלא את כל שדות Firebase.'
+      errEl.className='err-banner show'; return
+    }
+    try {
+      await initFirebase({apiKey,projectId,appId})
+      localStorage.setItem('st_mode','firebase')
+      localStorage.setItem('st_fbConfig',JSON.stringify({apiKey,projectId,appId}))
+    } catch(e) {
+      errEl.textContent='שגיאת Firebase: '+e.message
+      errEl.className='err-banner show'; return
+    }
+  } else {
+    localStorage.setItem('st_mode','local')
+  }
+  await boot()
+}
+window.startApp = startApp
+
+// ─── April 2026 seed (one-time) ───────────────────────────────────────────────
+async function seedApril2026() {
+  try {
+    const existing = await loadEntries('2026-04')
+    if (existing && existing.length > 0) return
+    const seed = [
+      {"id":"2026-04-03_1615","date":"2026-04-03","month":"2026-04","start_time":"16:15","end_time":"06:15","regular_hours":2.47,"overtime_125_hours":0,"overtime_150_hours":0,"overtime_175_hours":2,"overtime_200_hours":2.53,"shabbat_hours":7,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 1 מהחברה לחברה","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-05_1430","date":"2026-04-05","month":"2026-04","start_time":"14:30","end_time":"04:50","regular_hours":7,"overtime_125_hours":2,"overtime_150_hours":5.33,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"הורדת סוללות למשמרת ואנטנה","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-09_1456","date":"2026-04-09","month":"2026-04","start_time":"14:56","end_time":"09:24","regular_hours":7,"overtime_125_hours":2,"overtime_150_hours":9.47,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 3 נגרוני עם הינשוף","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-11_1645","date":"2026-04-11","month":"2026-04","start_time":"16:45","end_time":"05:40","regular_hours":7,"overtime_125_hours":2,"overtime_150_hours":0.92,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":3,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 4 עם טנדר 402","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-13_1900","date":"2026-04-13","month":"2026-04","start_time":"19:00","end_time":"05:40","regular_hours":7,"overtime_125_hours":2,"overtime_150_hours":1.67,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 5 רכב פרטי","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-15_0320","date":"2026-04-15","month":"2026-04","start_time":"03:20","end_time":"18:00","regular_hours":7,"overtime_125_hours":2,"overtime_150_hours":5.67,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 6 איסוף של שריאל עזיזה","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-17_1840","date":"2026-04-17","month":"2026-04","start_time":"18:40","end_time":"07:00","regular_hours":0.21,"overtime_125_hours":0,"overtime_150_hours":0,"overtime_175_hours":2,"overtime_200_hours":3.12,"shabbat_hours":7,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 7 הורדת מטוס","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-19_1430","date":"2026-04-19","month":"2026-04","start_time":"14:30","end_time":"00:00","regular_hours":7,"overtime_125_hours":2,"overtime_150_hours":0.5,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"יציאה מהחברה לינה","has_lina":true,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-20_0900","date":"2026-04-20","month":"2026-04","start_time":"09:00","end_time":"10:00","regular_hours":1,"overtime_125_hours":0,"overtime_150_hours":0,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"נסיעה הביתה אחרי לינה","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-23_1200","date":"2026-04-23","month":"2026-04","start_time":"12:00","end_time":"03:18","regular_hours":7,"overtime_125_hours":2,"overtime_150_hours":6.3,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 9 אבסנט","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-26_0710","date":"2026-04-26","month":"2026-04","start_time":"07:10","end_time":"21:00","regular_hours":8,"overtime_125_hours":2,"overtime_150_hours":3.83,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 10","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-27_1000","date":"2026-04-27","month":"2026-04","start_time":"10:00","end_time":"13:00","regular_hours":3,"overtime_125_hours":0,"overtime_150_hours":0,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"תיקון פנצר שיחה עם יובל","has_lina":false,"has_op_bonus":false,"has_company_car":false},
+      {"id":"2026-04-29_0600","date":"2026-04-29","month":"2026-04","start_time":"06:00","end_time":"20:00","regular_hours":8,"overtime_125_hours":2,"overtime_150_hours":4,"overtime_175_hours":0,"overtime_200_hours":0,"shabbat_hours":0,"holiday_hours":0,"driving_km":0,"driving_hours":0,"bonus":0,"notes":"דיה 11 עזיזה ציבן רכב פרטי","has_lina":false,"has_op_bonus":false,"has_company_car":false}
+    ]
+    for (const e of seed) await saveEntryDB(e.id, e)
+  } catch(err) { console.error('seedApril2026 failed:', err) }
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+async function boot() {
+  settings = await loadSettings()
+  await seedApril2026()
+  document.getElementById('setup').classList.remove('show')
+  document.getElementById('app').style.display = 'block'
+
+  // Wire up time-detection listeners (once, after DOM is ready)
+  ;['f-date','f-start-time','f-end-time'].forEach(id =>
+    document.getElementById(id).addEventListener('change', onTimeChange)
+  )
+
+  // Auto-insert colon in time fields (type 0830 → 08:30)
+  ;['f-start-time','f-end-time'].forEach(id => {
+    const el = document.getElementById(id)
+    el.addEventListener('input', function() {
+      let v = this.value.replace(/[^0-9]/g,'')
+      if (v.length >= 3) v = v.slice(0,2) + ':' + v.slice(2,4)
+      this.value = v
+      if (v.length === 5) onTimeChange()
+    })
+  })
+
+  navigate('dashboard')
+}
+
+async function init() {
+  document.getElementById('app').style.display = 'none'
+  const mode = localStorage.getItem('st_mode')
+  if (!mode) { document.getElementById('setup').classList.add('show'); return }
+  if (mode==='firebase') {
+    const cfg = JSON.parse(localStorage.getItem('st_fbConfig')||'null')
+    if (!cfg) { document.getElementById('setup').classList.add('show'); return }
+    try { await initFirebase(cfg) }
+    catch(e) { localStorage.removeItem('st_mode'); document.getElementById('setup').classList.add('show'); return }
+  }
+  await boot()
+}
+
+init()
+</script>
+</body>
+</html>
