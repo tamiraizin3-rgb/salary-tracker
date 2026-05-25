@@ -391,7 +391,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <div class="fsection">נסיעות</div>
       <label class="check-row" style="margin-bottom:10px">
         <input type="checkbox" id="f-company-car">
-        <span>רכב חברה</span>
+        <span>דמי נסיעה</span>
         <small>₪60/יום</small>
       </label>
       <div class="frow">
@@ -499,7 +499,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <div class="fsection">נסיעות</div>
       <div class="frow">
         <div class="fgroup"><label class="flabel">רכב פרטי (₪/ק״מ)</label><input class="finput" type="number" id="s-dkm" min="0" step="any"></div>
-        <div class="fgroup"><label class="flabel">רכב חברה (₪/יום)</label><input class="finput" type="number" id="s-company-car" min="0" step="any"></div>
+        <div class="fgroup"><label class="flabel">דמי נסיעה (₪/יום)</label><input class="finput" type="number" id="s-company-car" min="0" step="any"></div>
       </div>
       <div class="fgroup"><label class="flabel">שכר שעת נסיעה (₪/שע׳)</label><input class="finput" type="number" id="s-dhrs" min="0" step="any" placeholder="0"></div>
 
@@ -1275,7 +1275,7 @@ async function loadDashboard() {
     [T.holiday_hours>0,      'שעות חג',        `${fh(T.holiday_hours)} שע׳`, fc(P.holiday)],
     [T.driving_km>0,         'נסיעות רכב פרטי',`${T.driving_km.toFixed(1)} ק״מ`, fc(P.driving_km)],
     [T.driving_hours>0,      'שעות נסיעה',     `${T.driving_hours.toFixed(2)} שע׳`, fc(P.driving_hours)],
-    [T.company_car_days>0,   'רכב חברה',       `${T.company_car_days} ימים`, fc(P.company_car)],
+    [T.company_car_days>0,   'דמי נסיעה',       `${T.company_car_days} ימים`, fc(P.company_car)],
     [T.total_ashal>0,        'אש״ל',           '', fc(P.ashal)],
     [T.lina_count>0,         'לינה',           `${T.lina_count}×`, fc(P.lina)],
     [T.op_bonus_count>0,     'בונוס מבצעי',   `${T.op_bonus_count}×`, fc(P.op_bonus)],
@@ -1313,7 +1313,7 @@ async function loadDashboard() {
         e.holiday_hours>0 && 'חג',
         e.has_lina && 'לינה',
         e.has_op_bonus && 'בונוס מבצעי',
-        e.has_company_car && 'רכב חברה',
+        e.has_company_car && 'דמי נסיעה',
         e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
         e.bonus>0 && `+${fc(e.bonus)}`
       ].filter(Boolean).join(' · ')
@@ -1367,7 +1367,7 @@ async function loadMonthly() {
         e.shabbat_hours>0      && '<span class="tag tb">שבת</span>',
         e.holiday_hours>0      && '<span class="tag tb">חג</span>',
         (e.driving_km>0||e.driving_hours>0) && '<span class="tag tg">נסיעות</span>',
-        e.has_company_car      && '<span class="tag tg">רכב חברה</span>',
+        e.has_company_car      && '<span class="tag tg">דמי נסיעה</span>',
         e.has_lina             && '<span class="tag tp">לינה</span>',
         e.has_op_bonus         && '<span class="tag tv">בונוס מבצעי</span>',
         e.bonus>0              && '<span class="tag tg">בונוס</span>'
@@ -1499,7 +1499,7 @@ async function loadStub() {
   const extRows = [
     [T.driving_km>0,       `נסיעות רכב פרטי — ${T.driving_km.toFixed(1)} ק״מ × ₪${s.driving_km_rate}`, P.driving_km],
     [T.driving_hours>0,   `שעות נסיעה — ${T.driving_hours.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||0}`, P.driving_hours],
-    [T.company_car_days>0, `רכב חברה — ${T.company_car_days} ימים × ₪${s.company_car_rate||60}`, P.company_car],
+    [T.company_car_days>0, `דמי נסיעה — ${T.company_car_days} ימים × ₪${s.company_car_rate||60}`, P.company_car],
     [T.bonus>0,            'בונוסים', P.bonus],
     [T.total_ashal>0,      `אש״ל (${Math.round(T.total_ashal/(s.ashal_amount||1))}× ₪${s.ashal_amount})`, P.ashal],
     [T.lina_count>0,       `לינה (${T.lina_count}× ₪${s.lina_amount})`, P.lina],
