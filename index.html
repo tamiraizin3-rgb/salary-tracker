@@ -606,7 +606,7 @@ const DEFAULTS = {
   lina_amount: 300,
   op_bonus_amount: 500,
   company_car_rate: 60,
-  driving_hourly_rate: 0,
+  driving_hourly_rate: 70,
   daily_regular_hours: 8,
   bl_threshold: 7703,
   bl_max_income: 51910,
@@ -876,16 +876,19 @@ function calcEntryGross(e, s) {
   const lina    = e.has_lina        ? (s.lina_amount||0) : 0
   const opBonus = e.has_op_bonus    ? (s.op_bonus_amount||500) : 0
   const carPay  = e.has_company_car ? (s.company_car_rate||60) : 0
+  // driving hours are deducted from regular hours and paid at flat rate instead
+  const drivingHrs = e.driving_hours || 0
+  const effectiveRegularHrs = Math.max(0, (e.regular_hours||0) - drivingHrs)
   return (
-    (e.regular_hours||0)       * s.base_hourly_rate +
-    (e.overtime_125_hours||0)  * s.base_hourly_rate * 1.25 +
-    (e.overtime_150_hours||0)  * s.base_hourly_rate * 1.5 +
-    (e.overtime_175_hours||0)  * s.base_hourly_rate * 1.75 +
-    (e.overtime_200_hours||0)  * s.base_hourly_rate * 2.0 +
-    (e.shabbat_hours||0)       * s.base_hourly_rate * s.shabbat_rate +
-    (e.holiday_hours||0)       * s.base_hourly_rate * s.holiday_rate +
-    (e.driving_km||0)          * s.driving_km_rate +
-    (e.driving_hours||0)       * (s.driving_hourly_rate||0) +
+    effectiveRegularHrs                * s.base_hourly_rate +
+    (e.overtime_125_hours||0)          * s.base_hourly_rate * 1.25 +
+    (e.overtime_150_hours||0)          * s.base_hourly_rate * 1.5 +
+    (e.overtime_175_hours||0)          * s.base_hourly_rate * 1.75 +
+    (e.overtime_200_hours||0)          * s.base_hourly_rate * 2.0 +
+    (e.shabbat_hours||0)               * s.base_hourly_rate * s.shabbat_rate +
+    (e.holiday_hours||0)               * s.base_hourly_rate * s.holiday_rate +
+    (e.driving_km||0)                  * s.driving_km_rate +
+    drivingHrs                         * (s.driving_hourly_rate||70) +
     (e.bonus||0) + entryAshal(e, s) + lina + opBonus + carPay
     - breakDed
   )
@@ -918,7 +921,8 @@ function calcSummary(entries, s) {
 
   const pay = {
     // ── Hourly pay (pension/gemel base) ──
-    regular:      t.regular_hours      * s.base_hourly_rate,
+    // driving hours are deducted from regular hours and paid at flat rate instead
+    regular:      Math.max(0, t.regular_hours - t.driving_hours) * s.base_hourly_rate,
     overtime_125: t.overtime_125_hours * s.base_hourly_rate * 1.25,
     overtime_150: t.overtime_150_hours * s.base_hourly_rate * 1.5,
     overtime_175: t.overtime_175_hours * s.base_hourly_rate * 1.75,
@@ -928,7 +932,7 @@ function calcSummary(entries, s) {
     break_ded:   -(entries.filter(e => entryTotalHours(e) > 6).length * 0.5 * s.base_hourly_rate),
     // ── Allowances & extras (not pensionable) ──
     driving_km:    t.driving_km         * s.driving_km_rate,
-    driving_hours: t.driving_hours      * (s.driving_hourly_rate||0),
+    driving_hours: t.driving_hours      * (s.driving_hourly_rate||70),
     company_car:   t.company_car_days   * (s.company_car_rate||60),
     bonus:        t.bonus,
     ashal:        t.total_ashal,
@@ -1498,7 +1502,7 @@ async function loadStub() {
   // ── Allowances & extras (not pensionable) ──
   const extRows = [
     [T.driving_km>0,       `נסיעות רכב פרטי — ${T.driving_km.toFixed(1)} ק״מ × ₪${s.driving_km_rate}`, P.driving_km],
-    [T.driving_hours>0,   `שעות נסיעה — ${T.driving_hours.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||0}`, P.driving_hours],
+    [T.driving_hours>0,   `שעות נסיעה — ${T.driving_hours.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||70}`, P.driving_hours],
     [T.company_car_days>0, `דמי נסיעה — ${T.company_car_days} ימים × ₪${s.company_car_rate||60}`, P.company_car],
     [T.bonus>0,            'בונוסים', P.bonus],
     [T.total_ashal>0,      `אש״ל (${Math.round(T.total_ashal/(s.ashal_amount||1))}× ₪${s.ashal_amount})`, P.ashal],
@@ -1578,7 +1582,7 @@ function loadSettingsPage() {
   document.getElementById('s-hol').value        = s.holiday_rate
   document.getElementById('s-daily-hrs').value  = s.daily_regular_hours
   document.getElementById('s-dkm').value        = s.driving_km_rate
-  document.getElementById('s-dhrs').value       = s.driving_hourly_rate||0
+  document.getElementById('s-dhrs').value       = s.driving_hourly_rate||70
   document.getElementById('s-company-car').value = s.company_car_rate
   document.getElementById('s-ashal-amt').value  = s.ashal_amount
   document.getElementById('s-ashal-hrs').value  = s.ashal_min_hours
