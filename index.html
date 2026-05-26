@@ -962,8 +962,9 @@ function calcSummary(entries, s, opBonusOffset = 0) {
     if (e.has_company_car) t.company_car_days++
   })
 
-  // Count weekend (Friday=5 / Saturday=6) shifts this month
-  const weekendShifts = entries.filter(e => {
+  // Count מבצעי shifts on Friday(5) or Saturday(6) this month
+  const weekendMivtziShifts = entries.filter(e => {
+    if (!e.has_op_bonus && !(e.op_bonus_count > 0)) return false
     const dow = new Date(e.date + 'T00:00:00').getDay()
     return dow === 5 || dow === 6
   }).length
@@ -988,8 +989,8 @@ function calcSummary(entries, s, opBonusOffset = 0) {
     lina:          t.lina_count       * (s.lina_amount||0),
     // Shifts 1-9 (cumulative across all time): no bonus. Shift 10+: ₪500 each
     op_bonus:      Math.max(0, t.op_bonus_count - Math.max(0, 9 - opBonusOffset)) * (s.op_bonus_amount||500),
-    // בונוס שישי-שבת: more than 2 weekend shifts → ₪200 × ALL weekend shifts
-    friday_saturday_bonus: weekendShifts > 2 ? weekendShifts * (s.friday_saturday_bonus_amount||200) : 0,
+    // בונוס שישי-שבת: מבצעי shifts on Fri/Sat — first 2 don't count, ₪200 each beyond that
+    friday_saturday_bonus: Math.max(0, weekendMivtziShifts - 2) * (s.friday_saturday_bonus_amount||200),
   }
 
   // Base pay = ONLY regular hours × base rate (for pension & קרן השתלמות)
@@ -1014,7 +1015,7 @@ function calcSummary(entries, s, opBonusOffset = 0) {
   }
   const total_employer = Object.values(employer).reduce((a,b) => a+b, 0)
   const op_bonus_cumulative = opBonusOffset + t.op_bonus_count  // total מבצעי shifts through this month
-  return { totals:t, pay, gross, base_pay, hourly_pay, breakDays, deductions:ded, total_deductions:total_ded, net: gross - total_ded, employer, total_employer, opBonusOffset, op_bonus_cumulative, weekendShifts }
+  return { totals:t, pay, gross, base_pay, hourly_pay, breakDays, deductions:ded, total_deductions:total_ded, net: gross - total_ded, employer, total_employer, opBonusOffset, op_bonus_cumulative, weekendMivtziShifts }
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -1346,7 +1347,7 @@ async function loadDashboard() {
     [T.total_ashal>0,        'אש״ל',           '', fc(P.ashal)],
     [T.lina_count>0,         'לינה',           `${T.lina_count}×`, fc(P.lina)],
     [T.op_bonus_count>0,     'מבצעי', `${T.op_bonus_count}× (נצבר ${sum.op_bonus_cumulative})`, fc(P.op_bonus)],
-    [sum.weekendShifts>0,    'בונוס שישי-שבת', `${sum.weekendShifts} משמרות${sum.weekendShifts>2?' ✓':' (מתחת לסף)'}`, fc(P.friday_saturday_bonus)],
+    [sum.weekendMivtziShifts>0, 'בונוס שישי-שבת', `${sum.weekendMivtziShifts} מבצעי ×שישי/שבת · ${Math.max(0,sum.weekendMivtziShifts-2)} זכאיות × ₪${s.friday_saturday_bonus_amount||200}`, fc(P.friday_saturday_bonus)],
     [sum.breakDays > 0,      'הפסקה (ניכוי)',  `${sum.breakDays} × 30 דק׳`, fc(P.break_ded)],
   ].filter(r=>r[0])
 
@@ -1590,7 +1591,7 @@ async function loadStub() {
     [T.total_ashal>0,      `אש״ל (${Math.round(T.total_ashal/(s.ashal_amount||1))}× ₪${s.ashal_amount})`, P.ashal],
     [T.lina_count>0,       `לינה (${T.lina_count}× ₪${s.lina_amount})`, P.lina],
     [T.op_bonus_count>0,   `מבצעי — ${T.op_bonus_count} משמרת/ות החודש · נצבר ${sum.op_bonus_cumulative}/9${sum.op_bonus_cumulative>=9?' ✓':''} · ${Math.max(0,T.op_bonus_count-Math.max(0,9-sum.opBonusOffset))} זכאיות × ₪${s.op_bonus_amount||500}`, P.op_bonus],
-    [sum.weekendShifts>2,  `בונוס שישי-שבת — ${sum.weekendShifts} משמרות × ₪${s.friday_saturday_bonus_amount||200}`, P.friday_saturday_bonus],
+    [sum.weekendMivtziShifts>2, `בונוס שישי-שבת — ${sum.weekendMivtziShifts} מבצעי בסוף שבוע · ${Math.max(0,sum.weekendMivtziShifts-2)} זכאיות × ₪${s.friday_saturday_bonus_amount||200}`, P.friday_saturday_bonus],
   ].filter(r=>r[0])
 
   // Effective rate info for display
