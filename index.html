@@ -384,6 +384,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         <span>בונוס מבצעי</span>
         <small>₪500</small>
       </label>
+      <label class="check-row" style="margin-bottom:10px">
+        <input type="checkbox" id="f-aziza">
+        <span>עזיזה</span>
+        <small>−₪50 מהאש״ל</small>
+      </label>
       <div class="detect-box" style="display:block">
         <span class="fs12 text3">אש״ל מחושב אוטומטית לפי ההגדרות שלך · הפסקה (30 דק׳) מנוכה למשמרות מעל 6 שעות</span>
       </div>
@@ -428,9 +433,9 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 <div class="page" id="page-monthly">
   <h1 class="page-title">סקירה חודשית</h1>
   <div class="month-nav">
-    <button class="mnb" id="mon-next" onclick="monthShift(1)">&#8250;</button>
+    <button class="mnb" id="mon-prev" onclick="monthShift(-1)">&#8250;</button>
     <span class="mn-label" id="mon-label"></span>
-    <button class="mnb" id="mon-prev" onclick="monthShift(-1)">&#8249;</button>
+    <button class="mnb" id="mon-next" onclick="monthShift(1)">&#8249;</button>
   </div>
   <div class="card" style="margin-bottom:12px">
     <div class="row sb">
@@ -863,7 +868,8 @@ function entryAshal(e, s) {
   if (hrs >= thr)     count = 1
   if (hrs > thr)      count = 2
   if (hrs > thr * 2)  count = 3
-  return count * (s.ashal_amount || 0)
+  const ashal = count * (s.ashal_amount || 0)
+  return e.has_aziza ? Math.max(0, ashal - 50) : ashal
 }
 
 function entryTotalHours(e) {
@@ -1027,6 +1033,7 @@ function openNewEntry() {
   document.getElementById('f-notes').value = ''
   document.getElementById('f-lina').checked = false
   document.getElementById('f-op-bonus').checked = false
+  document.getElementById('f-aziza').checked = false
   document.getElementById('f-company-car').checked = false
   updateLinaLabel()
   navigate('log')
@@ -1058,6 +1065,7 @@ async function openEditEntry(id) {
   document.getElementById('f-notes').value  = e.notes||''
   document.getElementById('f-lina').checked        = !!e.has_lina
   document.getElementById('f-op-bonus').checked    = !!e.has_op_bonus
+  document.getElementById('f-aziza').checked       = !!e.has_aziza
   document.getElementById('f-company-car').checked = !!e.has_company_car
   updateLinaLabel()
   navigate('log')
@@ -1162,6 +1170,7 @@ async function saveEntry(ev) {
     notes:   document.getElementById('f-notes').value,
     has_lina:        document.getElementById('f-lina').checked,
     has_op_bonus:    document.getElementById('f-op-bonus').checked,
+    has_aziza:       document.getElementById('f-aziza').checked,
     has_company_car: document.getElementById('f-company-car').checked,
   }
   try {
@@ -1317,6 +1326,7 @@ async function loadDashboard() {
         e.holiday_hours>0 && 'חג',
         e.has_lina && 'לינה',
         e.has_op_bonus && 'בונוס מבצעי',
+        e.has_aziza && 'עזיזה',
         e.has_company_car && 'דמי נסיעה',
         e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
         e.bonus>0 && `+${fc(e.bonus)}`
@@ -1374,6 +1384,7 @@ async function loadMonthly() {
         e.has_company_car      && '<span class="tag tg">דמי נסיעה</span>',
         e.has_lina             && '<span class="tag tp">לינה</span>',
         e.has_op_bonus         && '<span class="tag tv">בונוס מבצעי</span>',
+        e.has_aziza            && '<span class="tag tv">עזיזה</span>',
         e.bonus>0              && '<span class="tag tg">בונוס</span>'
       ].filter(Boolean).join('')
       const detail = [
@@ -1724,14 +1735,17 @@ async function boot() {
     document.getElementById(id).addEventListener('change', onTimeChange)
   )
 
-  // Auto-insert colon in time fields (type 0830 → 08:30)
+  // Auto-insert colon in time fields (type 0830 → 08:30) + auto-jump to exit time
   ;['f-start-time','f-end-time'].forEach(id => {
     const el = document.getElementById(id)
     el.addEventListener('input', function() {
       let v = this.value.replace(/[^0-9]/g,'')
       if (v.length >= 3) v = v.slice(0,2) + ':' + v.slice(2,4)
       this.value = v
-      if (v.length === 5) onTimeChange()
+      if (v.length === 5) {
+        onTimeChange()
+        if (id === 'f-start-time') document.getElementById('f-end-time').focus()
+      }
     })
   })
 
