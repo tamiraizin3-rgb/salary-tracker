@@ -384,15 +384,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         <span>לינה</span>
         <small id="lina-amt-label">₪300</small>
       </label>
-      <div class="check-row" style="margin-bottom:10px">
-        <span>בונוס מבצעי</span>
-        <div class="cnt-wrap">
-          <button type="button" class="cnt-btn" onclick="adjustOpBonus(-1)">−</button>
-          <input type="number" id="f-op-bonus" min="0" step="1" value="0" class="cnt-input">
-          <button type="button" class="cnt-btn" onclick="adjustOpBonus(1)">+</button>
-        </div>
-        <small>×₪500</small>
-      </div>
+      <label class="check-row" style="margin-bottom:10px">
+        <input type="checkbox" id="f-op-bonus">
+        <span>מבצעי</span>
+        <small id="op-bonus-hint"></small>
+      </label>
       <label class="check-row" style="margin-bottom:10px">
         <input type="checkbox" id="f-aziza">
         <span>עזיזה</span>
@@ -892,11 +888,9 @@ function entryTotalHours(e) {
 function calcEntryGross(e, s) {
   // Break deduction based on work hours only (driving hours do NOT count)
   const breakDed = entryTotalHours(e) > 6 ? 0.5 * s.base_hourly_rate : 0
-  const lina    = e.has_lina ? (s.lina_amount||0) : 0
-  // op_bonus_count may be a counter (new) or has_op_bonus boolean (legacy)
-  const opCount = e.op_bonus_count !== undefined ? (e.op_bonus_count||0) : (e.has_op_bonus ? 1 : 0)
-  const opBonus = opCount * (s.op_bonus_amount||500)
-  const carPay  = e.has_company_car ? (s.company_car_rate||60) : 0
+  const lina   = e.has_lina        ? (s.lina_amount||0)   : 0
+  // op_bonus is NOT per-entry — it is calculated monthly based on cumulative מבצעי count
+  const carPay = e.has_company_car ? (s.company_car_rate||60) : 0
   // Driving hours deducted from overtime (highest tier first), then regular as fallback
   const drivingHrs = e.driving_hours || 0
   let remDriving = drivingHrs
@@ -915,13 +909,28 @@ function calcEntryGross(e, s) {
     (e.holiday_hours||0) * s.base_hourly_rate * s.holiday_rate +
     (e.driving_km||0)   * s.driving_km_rate +
     drivingHrs          * (s.driving_hourly_rate||70) +
-    (e.bonus||0) + entryAshal(e, s) + lina + opBonus + carPay
+    (e.bonus||0) + entryAshal(e, s) + lina + carPay
     - breakDed
   )
 }
 
+// ─── Cross-month מבצעי count ──────────────────────────────────────────────────
+async function getOpBonusOffset(month) {
+  // Returns number of מבצעי shifts in ALL months BEFORE the given month
+  const isMivtzi = e => !!(e.has_op_bonus || (e.op_bonus_count||0) > 0)
+  if (useFirebase) {
+    const { collection, query, where, getDocs } = window._fs
+    const snap = await getDocs(query(collection(db, 'entries'), where('has_op_bonus', '==', true)))
+    return snap.docs.filter(d => (d.data().month||'') < month).length
+  } else {
+    const raw = localStorage.getItem('st_entries')
+    const all = raw ? JSON.parse(raw) : {}
+    return Object.values(all).filter(e => isMivtzi(e) && (e.month||'') < month).length
+  }
+}
+
 // ─── Monthly summary ──────────────────────────────────────────────────────────
-function calcSummary(entries, s) {
+function calcSummary(entries, s, opBonusOffset = 0) {
   const t = {
     regular_hours:0, overtime_125_hours:0, overtime_150_hours:0,
     overtime_175_hours:0, overtime_200_hours:0,
@@ -948,8 +957,7 @@ function calcSummary(entries, s) {
     t.bonus               += e.bonus||0
     t.total_ashal         += entryAshal(e, s)
     if (e.has_lina)        t.lina_count++
-    // op_bonus_count (new counter) or has_op_bonus (legacy boolean)
-    t.op_bonus_count += e.op_bonus_count !== undefined ? (e.op_bonus_count||0) : (e.has_op_bonus ? 1 : 0)
+    if (e.has_op_bonus || (e.op_bonus_count||0) > 0) t.op_bonus_count++  // count מבצעי shifts this month
     if (e.has_company_car) t.company_car_days++
   })
 
@@ -971,7 +979,8 @@ function calcSummary(entries, s) {
     bonus:         t.bonus,
     ashal:         t.total_ashal,
     lina:          t.lina_count       * (s.lina_amount||0),
-    op_bonus:      t.op_bonus_count   * (s.op_bonus_amount||500),
+    // Shifts 1-9 (cumulative across all time): no bonus. Shift 10+: ₪500 each
+    op_bonus:      Math.max(0, t.op_bonus_count - Math.max(0, 9 - opBonusOffset)) * (s.op_bonus_amount||500),
   }
 
   // Base pay = ONLY regular hours × base rate (for pension & קרן השתלמות)
@@ -995,7 +1004,8 @@ function calcSummary(entries, s) {
     gemel:     base_pay * (s.gemel_employer_pct||7.5)   / 100,  // קרן השתלמות מעסיק
   }
   const total_employer = Object.values(employer).reduce((a,b) => a+b, 0)
-  return { totals:t, pay, gross, base_pay, hourly_pay, breakDays, deductions:ded, total_deductions:total_ded, net: gross - total_ded, employer, total_employer }
+  const op_bonus_cumulative = opBonusOffset + t.op_bonus_count  // total מבצעי shifts through this month
+  return { totals:t, pay, gross, base_pay, hourly_pay, breakDays, deductions:ded, total_deductions:total_ded, net: gross - total_ded, employer, total_employer, opBonusOffset, op_bonus_cumulative }
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -1064,10 +1074,11 @@ function openNewEntry() {
   ;['f-reg','f-ot125','f-ot150','f-ot175','f-ot200','f-shab','f-hol','f-dkm','f-dhrs','f-bonus'].forEach(id => document.getElementById(id).value='')
   document.getElementById('f-notes').value = ''
   document.getElementById('f-lina').checked = false
-  document.getElementById('f-op-bonus').value = 0
+  document.getElementById('f-op-bonus').checked = false
   document.getElementById('f-aziza').checked = false
   document.getElementById('f-company-car').checked = false
   updateLinaLabel()
+  updateOpBonusHint()
   navigate('log')
 }
 window.openNewEntry = openNewEntry
@@ -1096,10 +1107,11 @@ async function openEditEntry(id) {
   document.getElementById('f-bonus').value  = e.bonus||''
   document.getElementById('f-notes').value  = e.notes||''
   document.getElementById('f-lina').checked  = !!e.has_lina
-  document.getElementById('f-op-bonus').value = e.op_bonus_count !== undefined ? (e.op_bonus_count||0) : (e.has_op_bonus ? 1 : 0)
+  document.getElementById('f-op-bonus').checked = !!(e.has_op_bonus || (e.op_bonus_count||0) > 0)
   document.getElementById('f-aziza').checked = !!e.has_aziza
   document.getElementById('f-company-car').checked = !!e.has_company_car
   updateLinaLabel()
+  updateOpBonusHint()
   navigate('log')
 }
 window.openEditEntry = openEditEntry
@@ -1201,7 +1213,7 @@ async function saveEntry(ev) {
     bonus:                n('f-bonus'),
     notes:   document.getElementById('f-notes').value,
     has_lina:        document.getElementById('f-lina').checked,
-    op_bonus_count:  parseInt(document.getElementById('f-op-bonus').value)||0,
+    has_op_bonus:    document.getElementById('f-op-bonus').checked,
     has_aziza:       document.getElementById('f-aziza').checked,
     has_company_car: document.getElementById('f-company-car').checked,
   }
@@ -1298,7 +1310,8 @@ async function loadDashboard() {
       `שגיאה בטעינת נתונים.<br><small style="color:var(--danger)">${err.message||'בדוק הגדרות Firebase'}</small>`
     return
   }
-  const sum = calcSummary(entries, s)
+  const opOffset = await getOpBonusOffset(cm())
+  const sum = calcSummary(entries, s, opOffset)
 
   document.getElementById('dash-net').textContent   = fc(sum.net)
   document.getElementById('dash-gross').textContent = fc(sum.gross)
@@ -1323,7 +1336,7 @@ async function loadDashboard() {
     [T.company_car_days>0,   'דמי נסיעה',       `${T.company_car_days} ימים`, fc(P.company_car)],
     [T.total_ashal>0,        'אש״ל',           '', fc(P.ashal)],
     [T.lina_count>0,         'לינה',           `${T.lina_count}×`, fc(P.lina)],
-    [T.op_bonus_count>0,     'בונוס מבצעי',   `${T.op_bonus_count}×`, fc(P.op_bonus)],
+    [T.op_bonus_count>0,     'מבצעי', `${T.op_bonus_count}× (נצבר ${sum.op_bonus_cumulative})`, fc(P.op_bonus)],
     [sum.breakDays > 0,      'הפסקה (ניכוי)',  `${sum.breakDays} × 30 דק׳`, fc(P.break_ded)],
   ].filter(r=>r[0])
 
@@ -1357,7 +1370,7 @@ async function loadDashboard() {
         e.shabbat_hours>0 && 'שבת',
         e.holiday_hours>0 && 'חג',
         e.has_lina && 'לינה',
-        ((e.op_bonus_count||0)+(e.has_op_bonus?1:0)>0) && `בונוס מבצעי${(e.op_bonus_count||0)>1?' ×'+e.op_bonus_count:''}`,
+        (e.has_op_bonus || (e.op_bonus_count||0) > 0) && 'מבצעי',
         e.has_aziza && 'עזיזה',
         e.has_company_car && 'דמי נסיעה',
         e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
@@ -1390,7 +1403,8 @@ async function loadMonthly() {
     document.getElementById('mon-empty-text').textContent = 'שגיאה: ' + (err.message||'בדוק הגדרות Firebase')
     return
   }
-  const sum = calcSummary(entries, s)
+  const opOffset = await getOpBonusOffset(monMonth)
+  const sum = calcSummary(entries, s, opOffset)
 
   document.getElementById('mon-gross').textContent = fc(sum.gross)
   document.getElementById('mon-net').textContent   = fc(sum.net)
@@ -1415,7 +1429,7 @@ async function loadMonthly() {
         (e.driving_km>0||e.driving_hours>0) && '<span class="tag tg">נסיעות</span>',
         e.has_company_car      && '<span class="tag tg">דמי נסיעה</span>',
         e.has_lina             && '<span class="tag tp">לינה</span>',
-        ((e.op_bonus_count||0)+(e.has_op_bonus?1:0)>0) && `<span class="tag tv">מבצעי${(e.op_bonus_count||0)>1?' ×'+e.op_bonus_count:''}</span>`,
+        (e.has_op_bonus || (e.op_bonus_count||0) > 0) && '<span class="tag tv">מבצעי</span>',
         e.has_aziza            && '<span class="tag tv">עזיזה</span>',
         e.bonus>0              && '<span class="tag tg">בונוס</span>'
       ].filter(Boolean).join('')
@@ -1507,11 +1521,19 @@ function monthShift(d) {
 }
 window.monthShift = monthShift
 
-function adjustOpBonus(d) {
-  const el = document.getElementById('f-op-bonus')
-  el.value = Math.max(0, (parseInt(el.value)||0) + d)
+async function updateOpBonusHint() {
+  // Show cumulative מבצעי count in the form hint
+  const hint = document.getElementById('op-bonus-hint')
+  if (!hint) return
+  try {
+    const month = document.getElementById('f-date').value.slice(0,7) || cm()
+    const offset = await getOpBonusOffset(month)
+    const total = offset  // before this entry
+    if (total < 9) hint.textContent = `נצבר ${total}/9`
+    else hint.textContent = `נצבר ${total} ✓ — זכאי לבונוס`
+  } catch(e) { hint.textContent = '' }
 }
-window.adjustOpBonus = adjustOpBonus
+window.updateOpBonusHint = updateOpBonusHint
 
 // ─── Pay Stub ─────────────────────────────────────────────────────────────────
 async function loadStub() {
@@ -1533,7 +1555,8 @@ async function loadStub() {
   document.getElementById('stub-loading').style.display='none'
   if (!entries.length) { document.getElementById('stub-empty').style.display='block'; return }
 
-  const sum = calcSummary(entries, s)
+  const opOffset = await getOpBonusOffset(stubMonth)
+  const sum = calcSummary(entries, s, opOffset)
   const T=sum.totals, P=sum.pay, D=sum.deductions
 
   // ── Base hourly rows (pension & gemel apply to this) ──
@@ -1556,7 +1579,7 @@ async function loadStub() {
     [T.bonus>0,            'בונוסים', P.bonus],
     [T.total_ashal>0,      `אש״ל (${Math.round(T.total_ashal/(s.ashal_amount||1))}× ₪${s.ashal_amount})`, P.ashal],
     [T.lina_count>0,       `לינה (${T.lina_count}× ₪${s.lina_amount})`, P.lina],
-    [T.op_bonus_count>0,   `בונוס מבצעי (${T.op_bonus_count}× ₪${s.op_bonus_amount||500})`, P.op_bonus],
+    [T.op_bonus_count>0,   `מבצעי — ${T.op_bonus_count} משמרת/ות החודש · נצבר ${sum.op_bonus_cumulative}/9${sum.op_bonus_cumulative>=9?' ✓':''} · ${Math.max(0,T.op_bonus_count-Math.max(0,9-sum.opBonusOffset))} זכאיות × ₪${s.op_bonus_amount||500}`, P.op_bonus],
   ].filter(r=>r[0])
 
   // Effective rate info for display
