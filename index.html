@@ -890,9 +890,8 @@ function entryTotalHours(e) {
 }
 
 function calcEntryGross(e, s) {
-  // Break deduction based on total shift time (including driving hours)
-  const totalShiftHrs = entryTotalHours(e) + (e.driving_hours||0)
-  const breakDed = totalShiftHrs > 6 ? 0.5 * s.base_hourly_rate : 0
+  // Break deduction based on work hours only (driving hours do NOT count)
+  const breakDed = entryTotalHours(e) > 6 ? 0.5 * s.base_hourly_rate : 0
   const lina    = e.has_lina ? (s.lina_amount||0) : 0
   // op_bonus_count may be a counter (new) or has_op_bonus boolean (legacy)
   const opCount = e.op_bonus_count !== undefined ? (e.op_bonus_count||0) : (e.has_op_bonus ? 1 : 0)
@@ -963,8 +962,8 @@ function calcSummary(entries, s) {
     overtime_200: t.overtime_200_hours * s.base_hourly_rate * 2.0,
     shabbat:      t.shabbat_hours      * s.base_hourly_rate * s.shabbat_rate,
     holiday:      t.holiday_hours      * s.base_hourly_rate * s.holiday_rate,
-    // Break deduction — based on total shift time (including driving)
-    break_ded:   -(entries.filter(e => entryTotalHours(e) + (e.driving_hours||0) > 6).length * 0.5 * s.base_hourly_rate),
+    // Break deduction — based on work hours only (driving hours excluded)
+    break_ded:   -(entries.filter(e => entryTotalHours(e) > 6).length * 0.5 * s.base_hourly_rate),
     // ── Allowances & extras (NOT included in pension/gemel base) ──
     driving_km:    t.driving_km       * s.driving_km_rate,
     driving_hours: t.driving_hours    * (s.driving_hourly_rate||70),  // flat rate, included in gross for BL/tax
@@ -989,7 +988,7 @@ function calcSummary(entries, s) {
     gemel:            base_pay * (s.gemel_pct||0) / 100,        // on base pay (regular hours only)
   }
   const total_ded = Object.values(ded).reduce((a,b) => a+b, 0)
-  const breakDays = entries.filter(e => entryTotalHours(e) + (e.driving_hours||0) > 6).length
+  const breakDays = entries.filter(e => entryTotalHours(e) > 6).length
   const employer = {
     pension:   base_pay * (s.employer_pension_pct||6.5) / 100,
     severance: base_pay * (s.severance_pct||8.33)       / 100,
