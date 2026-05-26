@@ -69,6 +69,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
 .check-row span{font-size:14px;font-weight:500;color:var(--text2)}
 .check-row small{font-size:12px;color:var(--text3);margin-inline-start:auto}
+.cnt-wrap{display:flex;align-items:center;gap:6px;margin-inline-start:auto;margin-inline-end:4px}
+.cnt-btn{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border2);background:var(--card);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--primary);line-height:1;padding:0}
+.cnt-btn:active{background:var(--surface2)}
+.cnt-input{width:38px;text-align:center;border:none;background:transparent;font-size:16px;font-weight:700;padding:0;color:var(--text1);-moz-appearance:textfield}
+.cnt-input::-webkit-inner-spin-button,.cnt-input::-webkit-outer-spin-button{-webkit-appearance:none}
 
 .detect-box{border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:10px;font-size:13px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2)}
 .detect-box.ok{border-color:rgba(34,208,90,.35);color:var(--success);background:rgba(34,208,90,.06)}
@@ -379,11 +384,15 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         <span>לינה</span>
         <small id="lina-amt-label">₪300</small>
       </label>
-      <label class="check-row" style="margin-bottom:10px">
-        <input type="checkbox" id="f-op-bonus">
+      <div class="check-row" style="margin-bottom:10px">
         <span>בונוס מבצעי</span>
-        <small>₪500</small>
-      </label>
+        <div class="cnt-wrap">
+          <button type="button" class="cnt-btn" onclick="adjustOpBonus(-1)">−</button>
+          <input type="number" id="f-op-bonus" min="0" step="1" value="0" class="cnt-input">
+          <button type="button" class="cnt-btn" onclick="adjustOpBonus(1)">+</button>
+        </div>
+        <small>×₪500</small>
+      </div>
       <label class="check-row" style="margin-bottom:10px">
         <input type="checkbox" id="f-aziza">
         <span>עזיזה</span>
@@ -539,7 +548,10 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         <div class="fgroup"><label class="flabel">פנסיה (מעסיק) %</label><input class="finput" type="number" id="s-emp-pen" min="0" max="100" step="any"></div>
         <div class="fgroup"><label class="flabel">פיצויים %</label><input class="finput" type="number" id="s-severance" min="0" max="100" step="any"></div>
       </div>
-      <div style="font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:14px">מחושבות על שכר שעות בלבד. מוצגות בתלוש לידיעה — אינן מנוכות מהנטו.</div>
+      <div class="frow">
+        <div class="fgroup"><label class="flabel">קרן השתלמות (מעסיק) %</label><input class="finput" type="number" id="s-gemel-emp" min="0" max="100" step="any"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:14px">מחושבות על שעות בסיס בלבד. מוצגות בתלוש לידיעה — אינן מנוכות מהנטו.</div>
     </div>
     <button type="submit" class="btn btn-p btn-w mt14" id="settings-save-btn">שמור הגדרות</button>
   </form>
@@ -623,7 +635,8 @@ const DEFAULTS = {
   gemel_pct: 2.5,
   health_ins_pct: 0,
   employer_pension_pct: 6.5,
-  severance_pct: 8.33
+  severance_pct: 8.33,
+  gemel_employer_pct: 7.5
 }
 
 // ─── Storage abstraction ──────────────────────────────────────────────────────
@@ -877,24 +890,32 @@ function entryTotalHours(e) {
 }
 
 function calcEntryGross(e, s) {
-  const totalHrs = entryTotalHours(e)
-  const breakDed = totalHrs > 6 ? 0.5 * s.base_hourly_rate : 0  // only if shift >6h
-  const lina    = e.has_lina        ? (s.lina_amount||0) : 0
-  const opBonus = e.has_op_bonus    ? (s.op_bonus_amount||500) : 0
+  // Break deduction based on total shift time (including driving hours)
+  const totalShiftHrs = entryTotalHours(e) + (e.driving_hours||0)
+  const breakDed = totalShiftHrs > 6 ? 0.5 * s.base_hourly_rate : 0
+  const lina    = e.has_lina ? (s.lina_amount||0) : 0
+  // op_bonus_count may be a counter (new) or has_op_bonus boolean (legacy)
+  const opCount = e.op_bonus_count !== undefined ? (e.op_bonus_count||0) : (e.has_op_bonus ? 1 : 0)
+  const opBonus = opCount * (s.op_bonus_amount||500)
   const carPay  = e.has_company_car ? (s.company_car_rate||60) : 0
-  // driving hours are deducted from regular hours and paid at flat rate instead
+  // Driving hours deducted from overtime (highest tier first), then regular as fallback
   const drivingHrs = e.driving_hours || 0
-  const effectiveRegularHrs = Math.max(0, (e.regular_hours||0) - drivingHrs)
+  let remDriving = drivingHrs
+  const eff200 = Math.max(0, (e.overtime_200_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_200_hours||0))
+  const eff175 = Math.max(0, (e.overtime_175_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_175_hours||0))
+  const eff150 = Math.max(0, (e.overtime_150_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_150_hours||0))
+  const eff125 = Math.max(0, (e.overtime_125_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_125_hours||0))
+  const effReg = Math.max(0, (e.regular_hours||0) - remDriving)  // fallback if driving > overtime
   return (
-    effectiveRegularHrs                * s.base_hourly_rate +
-    (e.overtime_125_hours||0)          * s.base_hourly_rate * 1.25 +
-    (e.overtime_150_hours||0)          * s.base_hourly_rate * 1.5 +
-    (e.overtime_175_hours||0)          * s.base_hourly_rate * 1.75 +
-    (e.overtime_200_hours||0)          * s.base_hourly_rate * 2.0 +
-    (e.shabbat_hours||0)               * s.base_hourly_rate * s.shabbat_rate +
-    (e.holiday_hours||0)               * s.base_hourly_rate * s.holiday_rate +
-    (e.driving_km||0)                  * s.driving_km_rate +
-    drivingHrs                         * (s.driving_hourly_rate||70) +
+    effReg     * s.base_hourly_rate +
+    eff125     * s.base_hourly_rate * 1.25 +
+    eff150     * s.base_hourly_rate * 1.5 +
+    eff175     * s.base_hourly_rate * 1.75 +
+    eff200     * s.base_hourly_rate * 2.0 +
+    (e.shabbat_hours||0) * s.base_hourly_rate * s.shabbat_rate +
+    (e.holiday_hours||0) * s.base_hourly_rate * s.holiday_rate +
+    (e.driving_km||0)   * s.driving_km_rate +
+    drivingHrs          * (s.driving_hourly_rate||70) +
     (e.bonus||0) + entryAshal(e, s) + lina + opBonus + carPay
     - breakDed
   )
@@ -909,11 +930,18 @@ function calcSummary(entries, s) {
     driving_hours:0, bonus:0, total_ashal:0, lina_count:0, op_bonus_count:0, company_car_days:0
   }
   entries.forEach(e => {
-    t.regular_hours       += e.regular_hours||0
-    t.overtime_125_hours  += e.overtime_125_hours||0
-    t.overtime_150_hours  += e.overtime_150_hours||0
-    t.overtime_175_hours  += e.overtime_175_hours||0
-    t.overtime_200_hours  += e.overtime_200_hours||0
+    // Deduct driving hours from overtime (highest tier first), regular as fallback
+    let remDriving = e.driving_hours || 0
+    const eff200 = Math.max(0, (e.overtime_200_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_200_hours||0))
+    const eff175 = Math.max(0, (e.overtime_175_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_175_hours||0))
+    const eff150 = Math.max(0, (e.overtime_150_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_150_hours||0))
+    const eff125 = Math.max(0, (e.overtime_125_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_125_hours||0))
+    const effReg = Math.max(0, (e.regular_hours||0) - remDriving)
+    t.regular_hours       += effReg
+    t.overtime_125_hours  += eff125
+    t.overtime_150_hours  += eff150
+    t.overtime_175_hours  += eff175
+    t.overtime_200_hours  += eff200
     t.shabbat_hours       += e.shabbat_hours||0
     t.holiday_hours       += e.holiday_hours||0
     t.driving_km          += e.driving_km||0
@@ -921,54 +949,54 @@ function calcSummary(entries, s) {
     t.bonus               += e.bonus||0
     t.total_ashal         += entryAshal(e, s)
     if (e.has_lina)        t.lina_count++
-    if (e.has_op_bonus)    t.op_bonus_count++
+    // op_bonus_count (new counter) or has_op_bonus (legacy boolean)
+    t.op_bonus_count += e.op_bonus_count !== undefined ? (e.op_bonus_count||0) : (e.has_op_bonus ? 1 : 0)
     if (e.has_company_car) t.company_car_days++
   })
 
   const pay = {
-    // ── Hourly pay (pension/gemel base) ──
-    // driving hours are deducted from regular hours and paid at flat rate instead
-    regular:      Math.max(0, t.regular_hours - t.driving_hours) * s.base_hourly_rate,
+    // ── Hourly pay (t.* already reflects driving-deducted effective hours) ──
+    regular:      t.regular_hours      * s.base_hourly_rate,
     overtime_125: t.overtime_125_hours * s.base_hourly_rate * 1.25,
     overtime_150: t.overtime_150_hours * s.base_hourly_rate * 1.5,
     overtime_175: t.overtime_175_hours * s.base_hourly_rate * 1.75,
     overtime_200: t.overtime_200_hours * s.base_hourly_rate * 2.0,
     shabbat:      t.shabbat_hours      * s.base_hourly_rate * s.shabbat_rate,
     holiday:      t.holiday_hours      * s.base_hourly_rate * s.holiday_rate,
-    break_ded:   -(entries.filter(e => entryTotalHours(e) > 6).length * 0.5 * s.base_hourly_rate),
-    // ── Allowances & extras (not pensionable) ──
-    driving_km:    t.driving_km         * s.driving_km_rate,
-    driving_hours: t.driving_hours      * (s.driving_hourly_rate||70),
-    company_car:   t.company_car_days   * (s.company_car_rate||60),
-    bonus:        t.bonus,
-    ashal:        t.total_ashal,
-    lina:         t.lina_count         * (s.lina_amount||0),
-    op_bonus:     t.op_bonus_count     * (s.op_bonus_amount||500),
+    // Break deduction — based on total shift time (including driving)
+    break_ded:   -(entries.filter(e => entryTotalHours(e) + (e.driving_hours||0) > 6).length * 0.5 * s.base_hourly_rate),
+    // ── Allowances & extras (NOT included in pension/gemel base) ──
+    driving_km:    t.driving_km       * s.driving_km_rate,
+    driving_hours: t.driving_hours    * (s.driving_hourly_rate||70),  // flat rate, included in gross for BL/tax
+    company_car:   t.company_car_days * (s.company_car_rate||60),
+    bonus:         t.bonus,
+    ashal:         t.total_ashal,
+    lina:          t.lina_count       * (s.lina_amount||0),
+    op_bonus:      t.op_bonus_count   * (s.op_bonus_amount||500),
   }
 
-  // Base hourly pay (used for pension & gemel calculation)
-  const base_pay = Math.max(0,
-    pay.regular + pay.overtime_125 + pay.overtime_150 +
-    pay.overtime_175 + pay.overtime_200 +
-    pay.shabbat + pay.holiday + pay.break_ded
-  )
+  // Base pay = ONLY regular hours × base rate (for pension & קרן השתלמות)
+  const base_pay = Math.max(0, pay.regular + pay.break_ded)
   const gross = Object.values(pay).reduce((a,b) => a+b, 0)
+  // Total hourly pay (all hour-based rows) — for payslip display
+  const hourly_pay = pay.regular + pay.overtime_125 + pay.overtime_150 + pay.overtime_175 + pay.overtime_200 + pay.shabbat + pay.holiday + pay.break_ded
 
   const ded = {
-    bituach_leumi:    calcBL(gross, s),                          // from gross
-    income_tax:       calcIncomeTax(gross, s),                   // from gross
-    health_ins:       gross * (s.health_ins_pct||0) / 100,      // from gross
-    pension_employee: base_pay * s.pension_employee_pct / 100,  // from base pay only
-    gemel:            base_pay * (s.gemel_pct||0) / 100,        // from base pay only
+    bituach_leumi:    calcBL(gross, s),                         // on gross (includes driving pay)
+    income_tax:       calcIncomeTax(gross, s),                  // on gross
+    // ביטוח בריאות מבוטל — נכלל בביטוח לאומי
+    pension_employee: base_pay * s.pension_employee_pct / 100,  // on base pay (regular hours only)
+    gemel:            base_pay * (s.gemel_pct||0) / 100,        // on base pay (regular hours only)
   }
   const total_ded = Object.values(ded).reduce((a,b) => a+b, 0)
-  const breakDays = entries.filter(e => entryTotalHours(e) > 6).length
+  const breakDays = entries.filter(e => entryTotalHours(e) + (e.driving_hours||0) > 6).length
   const employer = {
     pension:   base_pay * (s.employer_pension_pct||6.5) / 100,
     severance: base_pay * (s.severance_pct||8.33)       / 100,
+    gemel:     base_pay * (s.gemel_employer_pct||7.5)   / 100,  // קרן השתלמות מעסיק
   }
   const total_employer = Object.values(employer).reduce((a,b) => a+b, 0)
-  return { totals:t, pay, gross, base_pay, breakDays, deductions:ded, total_deductions:total_ded, net: gross - total_ded, employer, total_employer }
+  return { totals:t, pay, gross, base_pay, hourly_pay, breakDays, deductions:ded, total_deductions:total_ded, net: gross - total_ded, employer, total_employer }
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -987,7 +1015,12 @@ function shiftMonth(ym, d) {
   return `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}`
 }
 function dayLabel(ds) {
-  return new Date(ds+'T00:00:00').toLocaleDateString('he-IL',{weekday:'short',day:'numeric',month:'short'})
+  const d = new Date(ds+'T00:00:00')
+  const dd = String(d.getDate()).padStart(2,'0')
+  const mm = String(d.getMonth()+1).padStart(2,'0')
+  const yyyy = d.getFullYear()
+  const wd = d.toLocaleDateString('he-IL',{weekday:'short'})
+  return `${dd}/${mm}/${yyyy} ${wd}`
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -1032,7 +1065,7 @@ function openNewEntry() {
   ;['f-reg','f-ot125','f-ot150','f-ot175','f-ot200','f-shab','f-hol','f-dkm','f-dhrs','f-bonus'].forEach(id => document.getElementById(id).value='')
   document.getElementById('f-notes').value = ''
   document.getElementById('f-lina').checked = false
-  document.getElementById('f-op-bonus').checked = false
+  document.getElementById('f-op-bonus').value = 0
   document.getElementById('f-aziza').checked = false
   document.getElementById('f-company-car').checked = false
   updateLinaLabel()
@@ -1063,9 +1096,9 @@ async function openEditEntry(id) {
   document.getElementById('f-dhrs').value   = e.driving_hours||''
   document.getElementById('f-bonus').value  = e.bonus||''
   document.getElementById('f-notes').value  = e.notes||''
-  document.getElementById('f-lina').checked        = !!e.has_lina
-  document.getElementById('f-op-bonus').checked    = !!e.has_op_bonus
-  document.getElementById('f-aziza').checked       = !!e.has_aziza
+  document.getElementById('f-lina').checked  = !!e.has_lina
+  document.getElementById('f-op-bonus').value = e.op_bonus_count !== undefined ? (e.op_bonus_count||0) : (e.has_op_bonus ? 1 : 0)
+  document.getElementById('f-aziza').checked = !!e.has_aziza
   document.getElementById('f-company-car').checked = !!e.has_company_car
   updateLinaLabel()
   navigate('log')
@@ -1169,7 +1202,7 @@ async function saveEntry(ev) {
     bonus:                n('f-bonus'),
     notes:   document.getElementById('f-notes').value,
     has_lina:        document.getElementById('f-lina').checked,
-    has_op_bonus:    document.getElementById('f-op-bonus').checked,
+    op_bonus_count:  parseInt(document.getElementById('f-op-bonus').value)||0,
     has_aziza:       document.getElementById('f-aziza').checked,
     has_company_car: document.getElementById('f-company-car').checked,
   }
@@ -1325,7 +1358,7 @@ async function loadDashboard() {
         e.shabbat_hours>0 && 'שבת',
         e.holiday_hours>0 && 'חג',
         e.has_lina && 'לינה',
-        e.has_op_bonus && 'בונוס מבצעי',
+        ((e.op_bonus_count||0)+(e.has_op_bonus?1:0)>0) && `בונוס מבצעי${(e.op_bonus_count||0)>1?' ×'+e.op_bonus_count:''}`,
         e.has_aziza && 'עזיזה',
         e.has_company_car && 'דמי נסיעה',
         e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
@@ -1383,7 +1416,7 @@ async function loadMonthly() {
         (e.driving_km>0||e.driving_hours>0) && '<span class="tag tg">נסיעות</span>',
         e.has_company_car      && '<span class="tag tg">דמי נסיעה</span>',
         e.has_lina             && '<span class="tag tp">לינה</span>',
-        e.has_op_bonus         && '<span class="tag tv">בונוס מבצעי</span>',
+        ((e.op_bonus_count||0)+(e.has_op_bonus?1:0)>0) && `<span class="tag tv">מבצעי${(e.op_bonus_count||0)>1?' ×'+e.op_bonus_count:''}</span>`,
         e.has_aziza            && '<span class="tag tv">עזיזה</span>',
         e.bonus>0              && '<span class="tag tg">בונוס</span>'
       ].filter(Boolean).join('')
@@ -1475,6 +1508,12 @@ function monthShift(d) {
 }
 window.monthShift = monthShift
 
+function adjustOpBonus(d) {
+  const el = document.getElementById('f-op-bonus')
+  el.value = Math.max(0, (parseInt(el.value)||0) + d)
+}
+window.adjustOpBonus = adjustOpBonus
+
 // ─── Pay Stub ─────────────────────────────────────────────────────────────────
 async function loadStub() {
   document.getElementById('stub-label').textContent = monthLabel(stubMonth)
@@ -1524,7 +1563,7 @@ async function loadStub() {
   // Effective rate info for display
   const effBL  = sum.gross>0 ? (D.bituach_leumi/sum.gross*100).toFixed(2) : '0.00'
   const effTax = sum.gross>0 ? (D.income_tax/sum.gross*100).toFixed(2)    : '0.00'
-  const pensionNote = `<span style="font-size:11px;color:var(--text3)"> (מחושב על שכר שעות ${fc(sum.base_pay)})</span>`
+  const pensionNote = `<span style="font-size:11px;color:var(--text3)"> (שעות בסיס ${fc(sum.base_pay)})</span>`
 
   document.getElementById('stub-content').innerHTML = `
   <div class="stub-head">
@@ -1542,7 +1581,7 @@ async function loadStub() {
         <span>${label}</span>
         <span class="sv" style="font-weight:700">${val<0?'-':''}${fc(Math.abs(val))}</span>
       </div>`).join('')}
-    <div class="stub-row total"><span>סה״כ שכר שעות</span><span>${fc(sum.base_pay)}</span></div>
+    <div class="stub-row total"><span>סה״כ שכר שעות</span><span>${fc(sum.hourly_pay)}</span></div>
   </div>
   ${extRows.length ? `<div class="stub-sec">
     <div class="stub-sec-title">תוספות</div>
@@ -1558,7 +1597,6 @@ async function loadStub() {
   <div class="stub-sec">
     <div class="stub-sec-title">ניכויים</div>
     <div class="stub-row ded"><span>ביטוח לאומי <span style="font-size:11px;color:var(--text3)">(שיעור אפקטיבי ${effBL}%)</span></span><span class="sv">-${fc(D.bituach_leumi)}</span></div>
-    ${D.health_ins>0 ? `<div class="stub-row ded"><span>ביטוח בריאות (${s.health_ins_pct}%)</span><span class="sv">-${fc(D.health_ins)}</span></div>` : ''}
     <div class="stub-row ded"><span>מס הכנסה <span style="font-size:11px;color:var(--text3)">(שיעור אפקטיבי ${effTax}%)</span></span><span class="sv">-${fc(D.income_tax)}</span></div>
     <div class="stub-row ded"><span>פנסיה עובד (${s.pension_employee_pct}%)${pensionNote}</span><span class="sv">-${fc(D.pension_employee)}</span></div>
     ${D.gemel>0 ? `<div class="stub-row ded"><span>קרן השתלמות (${s.gemel_pct}%)${pensionNote}</span><span class="sv">-${fc(D.gemel)}</span></div>` : ''}
@@ -1574,6 +1612,7 @@ async function loadStub() {
     <div class="stub-sec-title" style="color:var(--text3)">הפרשות מעסיק <span style="font-size:10px;font-weight:400">(לידיעה — אינן מנוכות מהנטו)</span></div>
     <div class="stub-row"><span>פנסיה מעסיק (${s.employer_pension_pct||6.5}%)${pensionNote}</span><span class="sv" style="color:var(--success)">+${fc(sum.employer.pension)}</span></div>
     <div class="stub-row"><span>פיצויים (${s.severance_pct||8.33}%)${pensionNote}</span><span class="sv" style="color:var(--success)">+${fc(sum.employer.severance)}</span></div>
+    <div class="stub-row"><span>קרן השתלמות מעסיק (${s.gemel_employer_pct||7.5}%)${pensionNote}</span><span class="sv" style="color:var(--success)">+${fc(sum.employer.gemel)}</span></div>
     <div class="stub-row total"><span>סה״כ עלות מעסיק לחודש זה</span><span>${fc(sum.gross + sum.total_employer)}</span></div>
   </div>`
 }
@@ -1610,6 +1649,7 @@ function loadSettingsPage() {
   document.getElementById('s-health').value     = s.health_ins_pct
   document.getElementById('s-emp-pen').value    = s.employer_pension_pct ?? 6.5
   document.getElementById('s-severance').value  = s.severance_pct ?? 8.33
+  document.getElementById('s-gemel-emp').value  = s.gemel_employer_pct ?? 7.5
   document.getElementById('storage-mode-text').textContent = useFirebase
     ? 'מסונכרן בין מכשירים באמצעות Firebase.'
     : 'נשמר רק בדפדפן הזה (אחסון מקומי).'
@@ -1642,7 +1682,8 @@ async function saveSettings(ev) {
     gemel_pct:           g('s-gemel'),
     health_ins_pct:      g('s-health'),
     employer_pension_pct:g('s-emp-pen'),
-    severance_pct:       g('s-severance')
+    severance_pct:       g('s-severance'),
+    gemel_employer_pct:  g('s-gemel-emp')
   }
   try {
     await saveSettingsDB(data)
