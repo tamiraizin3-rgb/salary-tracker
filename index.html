@@ -612,7 +612,13 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <div style="padding:16px">
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px">העתק את הנתונים למטה והזן אותם בוובטיים. ימים ללא משמרת מסומנים בצבע כהה.</div>
       <div id="webtime-table-wrap" style="overflow-x:auto"></div>
-      <button onclick="copyWebtimeTable()" class="btn btn-p btn-w mt12">📋 העתק טבלה</button>
+      <button onclick="copyWebtimeTable()" class="btn btn-g btn-w mt12">📋 העתק טבלה</button>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">🤖 מילוי אוטומטי</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px">פתח את וובטיים בדפדפן, לחץ F12 ← Console, הדבק את הקוד ולחץ Enter.</div>
+        <textarea id="webtime-script" readonly style="width:100%;height:90px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-family:monospace;font-size:11px;padding:10px;resize:none;direction:ltr"></textarea>
+        <button onclick="copyWebtimeScript()" class="btn btn-p btn-w mt8">⚡ העתק סקריפט</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1922,10 +1928,34 @@ async function exportWebtime() {
   </table>`
 
   document.getElementById('webtime-table-wrap').innerHTML = html
+
+  // ── Generate auto-fill script ──
+  const shifts = {}
+  entries.forEach(e => {
+    if (!e.start_time || !e.end_time) return
+    const day = parseInt(e.date.split('-')[2])
+    const [sh, sm] = e.start_time.split(':')
+    const [eh, em] = e.end_time.split(':')
+    shifts[day] = [sh, sm, eh, em]
+  })
+  const script = Object.keys(shifts).length
+    ? `(function(){var d=${JSON.stringify(shifts)};var n=0;Object.keys(d).forEach(function(day){var s=d[day];['time_start_HH_','time_start_MM_','time_end_HH_','time_end_MM_'].forEach(function(name,i){var el=document.querySelector('input[name="'+name+day+'"]');if(el){el.value=s[i];el.dispatchEvent(new Event('change',{bubbles:true}));el.dispatchEvent(new Event('blur',{bubbles:true}));}});n++;});alert('\\u2713 \\u04e2\\u05d5\\u05dc\\u05d0\\u05d5 '+n+' \\u05de\\u05e9\\u05de\\u05e8\\u05d5\\u05ea');})();`
+    : '// אין משמרות עם שעות כניסה/יציאה לחודש זה'
+  document.getElementById('webtime-script').value = script
+
   document.getElementById('webtime-modal').style.display = 'block'
   window.scrollTo(0, 0)
 }
 window.exportWebtime = exportWebtime
+
+function copyWebtimeScript() {
+  const script = document.getElementById('webtime-script').value
+  if (!script || script.startsWith('//')) { showToast('אין נתונים לייצוא', true); return }
+  navigator.clipboard.writeText(script)
+    .then(() => showToast('סקריפט הועתק ✓'))
+    .catch(() => showToast('שגיאה בהעתקה', true))
+}
+window.copyWebtimeScript = copyWebtimeScript
 
 function copyWebtimeTable() {
   const rows = document.querySelectorAll('.wt-table tbody tr.wt-worked')
