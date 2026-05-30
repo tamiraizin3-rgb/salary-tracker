@@ -1672,9 +1672,8 @@ async function loadStub() {
 
   // ── Allowances & extras (not pensionable) ──
   const extRows = [
-    [T.driving_km>0,          `נסיעות רכב פרטי — ${T.driving_km.toFixed(1)} ק״מ × ₪${s.driving_km_rate}`, P.driving_km],
-    [T.driving_hours_to>0,   `נסיעה לעבודה — ${T.driving_hours_to.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||70}`, T.driving_hours_to * (s.driving_hourly_rate||70)],
-    [T.driving_hours_from>0, `נסיעה מהעבודה — ${T.driving_hours_from.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||70}`, T.driving_hours_from * (s.driving_hourly_rate||70)],
+    [T.driving_km>0,      `נסיעות רכב פרטי — ${T.driving_km.toFixed(1)} ק״מ × ₪${s.driving_km_rate}`, P.driving_km],
+    [T.driving_hours>0,   `שעות נסיעה — ${T.driving_hours.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||70}`, P.driving_hours],
     [T.company_car_days>0, `דמי נסיעה — ${T.company_car_days} ימים × ₪${s.company_car_rate||60}`, P.company_car],
     [T.bonus>0,            'בונוסים', P.bonus],
     [T.total_ashal>0,      `אש״ל (${Math.round(T.total_ashal/(s.ashal_amount||1))}× ₪${s.ashal_amount})`, P.ashal],
