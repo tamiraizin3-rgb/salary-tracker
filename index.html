@@ -295,7 +295,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
   </div>
 
   <div id="setup-err" class="err-banner mt12"></div>
-  <button class="btn btn-p btn-w mt16" style="font-size:16px;padding:14px" onclick="startApp()">בוא נתחיל ←</button>
+  <button class="btn btn-p btn-w mt16" style="font-size:16px;padding:14px" id="setup-start-btn" onclick="startApp()">בוא נתחיל ←</button>
 </div>
 </div>
 
@@ -573,6 +573,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <div class="card-title">אחסון נתונים</div>
     <p id="storage-mode-text"></p>
     <button class="btn btn-g btn-sm mt10" onclick="resetStorage()">שנה אחסון / אפס</button>
+    <button class="btn btn-d btn-sm mt10" id="sign-out-btn" style="display:none" onclick="signOutUser()">🚪 התנתק מ-Google</button>
   </div>
 
   <div class="card mt12 fs13 text3">
@@ -631,11 +632,12 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 
 <script type="module">
 // ─── Firebase lazy load ───────────────────────────────────────────────────────
-let db = null, useFirebase = false
+let db = null, auth = null, useFirebase = false
 
 async function initFirebase(cfg) {
   const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js')
   const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js')
+  const fa = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js')
   const app = initializeApp({
     apiKey: cfg.apiKey,
     authDomain: `${cfg.projectId}.firebaseapp.com`,
@@ -643,7 +645,9 @@ async function initFirebase(cfg) {
     appId: cfg.appId
   })
   db = fs.getFirestore(app)
+  auth = fa.getAuth(app)
   window._fs = fs
+  window._fa = fa
   useFirebase = true
 }
 
@@ -1772,9 +1776,11 @@ function loadSettingsPage() {
   document.getElementById('s-emp-pen').value    = s.employer_pension_pct ?? 6.5
   document.getElementById('s-severance').value  = s.severance_pct ?? 8.33
   document.getElementById('s-gemel-emp').value  = s.gemel_employer_pct ?? 7.5
+  const signedInEmail = auth?.currentUser?.email || ''
   document.getElementById('storage-mode-text').textContent = useFirebase
-    ? 'מסונכרן בין מכשירים באמצעות Firebase.'
+    ? `מסונכרן בין מכשירים באמצעות Firebase.${signedInEmail ? ` מחובר כ: ${signedInEmail}` : ''}`
     : 'נשמר רק בדפדפן הזה (אחסון מקומי).'
+  document.getElementById('sign-out-btn').style.display = useFirebase ? 'inline-flex' : 'none'
 }
 
 async function saveSettings(ev) {
@@ -1825,6 +1831,26 @@ function resetStorage() {
 }
 window.resetStorage = resetStorage
 
+// ─── Google Auth ──────────────────────────────────────────────────────────────
+async function signInWithGoogle(cfg) {
+  const { GoogleAuthProvider, signInWithPopup } = window._fa
+  const provider = new GoogleAuthProvider()
+  await signInWithPopup(auth, provider)
+  localStorage.setItem('st_mode', 'firebase')
+  localStorage.setItem('st_fbConfig', JSON.stringify(cfg))
+  await boot()
+}
+
+async function signOutUser() {
+  if (!auth) return
+  if (!confirm('להתנתק מ-Google?')) return
+  await window._fa.signOut(auth)
+  localStorage.removeItem('st_mode')
+  localStorage.removeItem('st_fbConfig')
+  location.reload()
+}
+window.signOutUser = signOutUser
+
 // ─── Setup ────────────────────────────────────────────────────────────────────
 let setupMode = 'local'
 
@@ -1833,6 +1859,7 @@ function selectSetup(mode) {
   document.getElementById('opt-local').classList.toggle('sel', mode==='local')
   document.getElementById('opt-firebase').classList.toggle('sel', mode==='firebase')
   document.getElementById('fb-form').classList.toggle('show', mode==='firebase')
+  document.getElementById('setup-start-btn').textContent = mode==='firebase' ? 'כניסה עם Google ←' : 'בוא נתחיל ←'
 }
 window.selectSetup = selectSetup
 
@@ -1840,25 +1867,29 @@ async function startApp() {
   const errEl = document.getElementById('setup-err')
   errEl.className = 'err-banner'
   if (setupMode === 'firebase') {
-    const apiKey     = document.getElementById('fb-apiKey').value.trim()
-    const projectId  = document.getElementById('fb-projectId').value.trim()
-    const appId      = document.getElementById('fb-appId').value.trim()
+    const apiKey    = document.getElementById('fb-apiKey').value.trim()
+    const projectId = document.getElementById('fb-projectId').value.trim()
+    const appId     = document.getElementById('fb-appId').value.trim()
     if (!apiKey||!projectId||!appId) {
-      errEl.textContent='אנא מלא את כל שדות Firebase.'
-      errEl.className='err-banner show'; return
+      errEl.textContent = 'אנא מלא את כל שדות Firebase.'
+      errEl.className = 'err-banner show'; return
     }
+    const btn = document.getElementById('setup-start-btn')
+    btn.disabled = true; btn.textContent = 'מאתחל...'
     try {
-      await initFirebase({apiKey,projectId,appId})
-      localStorage.setItem('st_mode','firebase')
-      localStorage.setItem('st_fbConfig',JSON.stringify({apiKey,projectId,appId}))
+      await initFirebase({apiKey, projectId, appId})
+      await signInWithGoogle({apiKey, projectId, appId})
     } catch(e) {
-      errEl.textContent='שגיאת Firebase: '+e.message
-      errEl.className='err-banner show'; return
+      errEl.textContent = e.code === 'auth/popup-closed-by-user' ? 'הכניסה בוטלה — נסה שנית'
+        : e.code === 'auth/popup-blocked' ? 'הדפדפן חסם את החלון — אפשר חלונות קופצים ונסה שנית'
+        : 'שגיאת Firebase: ' + e.message
+      errEl.className = 'err-banner show'
+      btn.disabled = false; btn.textContent = 'כניסה עם Google ←'
     }
   } else {
-    localStorage.setItem('st_mode','local')
+    localStorage.setItem('st_mode', 'local')
+    await boot()
   }
-  await boot()
 }
 window.startApp = startApp
 
@@ -1924,6 +1955,18 @@ async function init() {
     if (!cfg) { document.getElementById('setup').classList.add('show'); return }
     try { await initFirebase(cfg) }
     catch(e) { localStorage.removeItem('st_mode'); document.getElementById('setup').classList.add('show'); return }
+    // Wait for Firebase to restore persisted auth session
+    const user = await new Promise(resolve => {
+      const unsub = window._fa.onAuthStateChanged(auth, u => { unsub(); resolve(u) })
+    })
+    if (user) { await boot(); return }
+    // Session expired — show setup pre-filled so user just clicks sign in
+    document.getElementById('setup').classList.add('show')
+    selectSetup('firebase')
+    document.getElementById('fb-apiKey').value   = cfg.apiKey    || ''
+    document.getElementById('fb-projectId').value = cfg.projectId || ''
+    document.getElementById('fb-appId').value     = cfg.appId     || ''
+    return
   }
   await boot()
 }
