@@ -240,6 +240,18 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 /* ─── Shabbat times inline text ──────────────────────────────────────────────── */
 .shab-inline{font-size:12px;color:var(--text3);text-align:center;padding:4px 0 10px;letter-spacing:.01em}
 
+/* ─── Webtime export table ───────────────────────────────────────────────────── */
+.wt-table{width:100%;border-collapse:collapse;font-size:13px;direction:rtl}
+.wt-table th{background:var(--surface2);color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border:1px solid var(--border);text-align:center}
+.wt-table td{padding:8px 10px;border:1px solid var(--border);text-align:center;color:var(--text)}
+.wt-table tr.wt-worked{background:rgba(34,208,90,.06)}
+.wt-table tr.wt-worked td{color:var(--text)}
+.wt-table tr.wt-empty td{color:var(--text3);background:var(--surface)}
+.wt-table tr.wt-weekend td{color:var(--text2)}
+.wt-table td.wt-date{font-weight:700}
+.wt-table td.wt-time{font-family:monospace;font-size:14px;font-weight:700;color:var(--primary)}
+.wt-table tr.wt-empty td.wt-time{color:var(--border2)}
+
 @media print{
   .bottom-nav,.no-print{display:none!important}
   .page{padding-bottom:0}
@@ -454,6 +466,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <span id="mon-totalhrs">0.0 שעות סה״כ</span>
     </div>
   </div>
+  <button class="btn btn-g btn-w" style="margin-bottom:12px" onclick="exportWebtime()">📋 ייצוא לוובטיים</button>
   <div class="loading" id="mon-loading">טוען...</div>
   <ul class="entry-list" id="mon-entries"></ul>
   <div class="empty" id="mon-empty" style="display:none">
@@ -588,6 +601,22 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 </nav>
 
 </div><!-- #app -->
+
+<!-- ══ Webtime Export Modal ══ -->
+<div id="webtime-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;overflow-y:auto;padding:20px">
+  <div style="max-width:540px;margin:0 auto;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
+    <div style="background:linear-gradient(135deg,#0e1e38,#112240);padding:18px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:17px;font-weight:800">ייצוא לוובטיים</div>
+      <button onclick="document.getElementById('webtime-modal').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:16px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">העתק את הנתונים למטה והזן אותם בוובטיים. ימים ללא משמרת מסומנים בצבע כהה.</div>
+      <div id="webtime-table-wrap" style="overflow-x:auto"></div>
+      <button onclick="copyWebtimeTable()" class="btn btn-p btn-w mt12">📋 העתק טבלה</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script type="module">
@@ -1839,6 +1868,78 @@ async function init() {
   }
   await boot()
 }
+
+// ─── Webtime Export ───────────────────────────────────────────────────────────
+const DAY_NAMES = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳']
+const DAY_FULL  = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת']
+
+async function exportWebtime() {
+  const entries = await loadEntries(monMonth)
+  const byDate = {}
+  entries.forEach(e => { byDate[e.date] = e })
+
+  const [y, m] = monMonth.split('-').map(Number)
+  const daysInMonth = new Date(y, m, 0).getDate()
+
+  const rows = []
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    const dow = new Date(dateStr + 'T00:00:00').getDay() // 0=Sun … 6=Sat
+    const e = byDate[dateStr]
+    rows.push({ dateStr, d, dow, entry: e || null })
+  }
+
+  const dd = d => String(d).padStart(2,'0')
+  const html = `
+  <table class="wt-table">
+    <thead>
+      <tr>
+        <th>תאריך</th>
+        <th>יום</th>
+        <th>שעת כניסה</th>
+        <th>שעת יציאה</th>
+        <th>הערות</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(({d, dow, entry}) => {
+        const isWeekend = dow === 5 || dow === 6
+        const cls = entry ? 'wt-worked' : isWeekend ? 'wt-weekend' : 'wt-empty'
+        const dateDisp = `${dd(d)}/${dd(m)}`
+        const dayDisp  = DAY_FULL[dow]
+        const start    = entry?.start_time || ''
+        const end      = entry?.end_time   || ''
+        const notes    = entry?.notes      || ''
+        return `<tr class="${cls}">
+          <td class="wt-date">${dateDisp}</td>
+          <td>${dayDisp}</td>
+          <td class="wt-time">${start || '—'}</td>
+          <td class="wt-time">${end   || '—'}</td>
+          <td style="font-size:12px;color:var(--text3);text-align:right">${notes}</td>
+        </tr>`
+      }).join('')}
+    </tbody>
+  </table>`
+
+  document.getElementById('webtime-table-wrap').innerHTML = html
+  document.getElementById('webtime-modal').style.display = 'block'
+  window.scrollTo(0, 0)
+}
+window.exportWebtime = exportWebtime
+
+function copyWebtimeTable() {
+  const rows = document.querySelectorAll('.wt-table tbody tr.wt-worked')
+  if (!rows.length) { showToast('אין משמרות לייצוא', true); return }
+  const lines = ['תאריך\tיום\tשעת כניסה\tשעת יציאה\tהערות']
+  rows.forEach(tr => {
+    const cells = tr.querySelectorAll('td')
+    lines.push([...cells].map(td => td.textContent.trim()).join('\t'))
+  })
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => showToast('הועתק ✓'))
+    .catch(() => showToast('שגיאה בהעתקה', true))
+}
+window.copyWebtimeTable = copyWebtimeTable
 
 init()
 </script>
