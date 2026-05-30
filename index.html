@@ -468,8 +468,6 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <span id="mon-days">0 ימים</span>
       <span style="color:var(--border2)">•</span>
       <span id="mon-totalhrs">0.0 שעות סה״כ</span>
-      <span id="mon-drivinghrs" style="display:none;color:var(--border2)">•</span>
-      <span id="mon-drivinghrs-val" style="display:none"></span>
     </div>
   </div>
   <button class="btn btn-g btn-w" style="margin-bottom:12px" onclick="exportWebtime()">📋 ייצוא לוובטיים</button>
@@ -1103,34 +1101,6 @@ function addHoursToTime(timeStr, hours) {
   return `${String(newH).padStart(2,'0')}:${String(newM).padStart(2,'0')}`
 }
 
-// ─── Live shift timer ─────────────────────────────────────────────────────────
-let liveTimer = null
-
-function startLiveTimer(date, startTime) {
-  stopLiveTimer()
-  const st = normalizeTime(startTime)
-  if (!st || !date) return
-  const box  = document.getElementById('detect-box')
-  const info = document.getElementById('detect-info')
-  box.style.display = 'block'
-  box.className = 'detect-box'
-  function tick() {
-    const startDt = new Date(`${date}T${st}`)
-    let diff = Date.now() - startDt.getTime()
-    if (diff < 0) diff += 86400000 // shift started yesterday
-    const totalSec = Math.floor(diff / 1000)
-    const h   = Math.floor(totalSec / 3600)
-    const min = Math.floor((totalSec % 3600) / 60)
-    const sec = totalSec % 60
-    info.textContent = `⏱ ${h}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')} מתחילת המשמרת`
-  }
-  tick()
-  liveTimer = setInterval(tick, 1000)
-}
-
-function stopLiveTimer() {
-  if (liveTimer) { clearInterval(liveTimer); liveTimer = null }
-}
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 let toastT
@@ -1167,7 +1137,6 @@ function openNewEntry() {
   document.getElementById('log-save-btn').textContent = 'שמור רישום'
   document.getElementById('log-delete-btn').style.display = 'none'
   document.getElementById('log-err').className = 'err-banner'
-  stopLiveTimer()
   document.getElementById('f-date').value = today()
   document.getElementById('f-start-time').value = ''
   document.getElementById('f-end-time').value = ''
@@ -1191,7 +1160,6 @@ async function openEditEntry(id) {
   document.getElementById('log-title').textContent = 'עריכת רישום'
   document.getElementById('log-save-btn').textContent = 'שמור שינויים'
   document.getElementById('log-delete-btn').style.display = 'block'
-  stopLiveTimer()
   document.getElementById('log-err').className = 'err-banner'
   document.getElementById('f-date').value = e.date
   document.getElementById('f-start-time').value = e.start_time || ''
@@ -1240,19 +1208,8 @@ async function runAutoDetect() {
   const box         = document.getElementById('detect-box')
   const info        = document.getElementById('detect-info')
 
-  if (!date || !startTime) { box.style.display='none'; stopLiveTimer(); return }
+  if (!date || !startTime || !endTime) { box.style.display='none'; return }
 
-  // Start time present but no end time → live shift timer
-  if (!endTime) {
-    if (!normalizeTime(startTime)) {
-      box.style.display='block'; box.className='detect-box err'
-      info.textContent = 'פורמט שעה: HH:MM (לדוגמה 08:30 או 16:45)'
-      stopLiveTimer(); return
-    }
-    startLiveTimer(date, startTime); return
-  }
-
-  stopLiveTimer()
   if (!normalizeTime(startTime) || !normalizeTime(endTime)) {
     box.style.display='block'; box.className='detect-box err'
     info.textContent = 'פורמט שעה: HH:MM (לדוגמה 08:30 או 16:45)'
@@ -1532,17 +1489,13 @@ async function loadMonthly() {
   document.getElementById('mon-net').textContent   = fc(sum.net)
   document.getElementById('mon-days').textContent  = `${entries.length} ימים`
   const totalHrs = sum.totals.regular_hours+sum.totals.overtime_125_hours+sum.totals.overtime_150_hours+sum.totals.overtime_175_hours+sum.totals.overtime_200_hours+sum.totals.shabbat_hours+sum.totals.holiday_hours
-  document.getElementById('mon-totalhrs').textContent = `${totalHrs.toFixed(1)} שע׳ עבודה`
   const T = sum.totals
+  let hrsText = `${totalHrs.toFixed(1)} שע׳ עבודה`
   if (T.driving_hours > 0) {
-    document.getElementById('mon-drivinghrs').style.display = ''
-    document.getElementById('mon-drivinghrs-val').style.display = ''
     const dParts = [T.driving_hours_to > 0 && `${T.driving_hours_to.toFixed(1)} הלוך`, T.driving_hours_from > 0 && `${T.driving_hours_from.toFixed(1)} חזור`].filter(Boolean)
-    document.getElementById('mon-drivinghrs-val').textContent = dParts.join(' + ') + ' שע׳ נסיעה'
-  } else {
-    document.getElementById('mon-drivinghrs').style.display = 'none'
-    document.getElementById('mon-drivinghrs-val').style.display = 'none'
+    hrsText += ` + ${dParts.join(' + ')} נסיעה`
   }
+  document.getElementById('mon-totalhrs').textContent = hrsText
   document.getElementById('mon-loading').style.display='none'
 
   const ul = document.getElementById('mon-entries')
