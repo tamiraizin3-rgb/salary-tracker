@@ -1491,7 +1491,7 @@ async function loadMonthly() {
   const totalHrs = sum.totals.regular_hours+sum.totals.overtime_125_hours+sum.totals.overtime_150_hours+sum.totals.overtime_175_hours+sum.totals.overtime_200_hours+sum.totals.shabbat_hours+sum.totals.holiday_hours
   const T = sum.totals
   let hrsText = `${totalHrs.toFixed(1)} שע׳ עבודה`
-  if (T.driving_hours > 0) hrsText += ` + ${T.driving_hours.toFixed(1)} שע׳ נסיעה`
+  if (T.driving_hours > 0) hrsText += ` • ${T.driving_hours.toFixed(1)} שע׳ נסיעה`
   document.getElementById('mon-totalhrs').textContent = hrsText
   document.getElementById('mon-loading').style.display='none'
 
