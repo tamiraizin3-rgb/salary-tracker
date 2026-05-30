@@ -416,14 +416,18 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         <span>דמי נסיעה</span>
         <small>₪60/יום</small>
       </label>
+      <div class="fgroup">
+        <label class="flabel">ק״מ — רכב פרטי</label>
+        <input class="finput" type="number" id="f-dkm" min="0" step="any" placeholder="0">
+      </div>
       <div class="frow">
         <div class="fgroup">
-          <label class="flabel">ק״מ — רכב פרטי</label>
-          <input class="finput" type="number" id="f-dkm" min="0" step="any" placeholder="0">
+          <label class="flabel">נסיעה לעבודה (שע׳)</label>
+          <input class="finput" type="number" id="f-dhrs-to" min="0" step="0.25" placeholder="0" oninput="onTimeChange()">
         </div>
         <div class="fgroup">
-          <label class="flabel">שעות נסיעה</label>
-          <input class="finput" type="number" id="f-dhrs" min="0" step="any" placeholder="0">
+          <label class="flabel">נסיעה מהעבודה (שע׳)</label>
+          <input class="finput" type="number" id="f-dhrs-from" min="0" step="0.25" placeholder="0" oninput="onTimeChange()">
         </div>
       </div>
 
@@ -464,6 +468,8 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <span id="mon-days">0 ימים</span>
       <span style="color:var(--border2)">•</span>
       <span id="mon-totalhrs">0.0 שעות סה״כ</span>
+      <span id="mon-drivinghrs" style="display:none;color:var(--border2)">•</span>
+      <span id="mon-drivinghrs-val" style="display:none"></span>
     </div>
   </div>
   <button class="btn btn-g btn-w" style="margin-bottom:12px" onclick="exportWebtime()">📋 ייצוא לוובטיים</button>
@@ -791,7 +797,7 @@ function isNightShift(startDt, endDt) {
   return nightOverlap(d0) > 0 || nightOverlap(d1) > 0
 }
 
-async function autoCalcHours(date, startTime, endTime) {
+async function autoCalcHours(date, startTime, endTime, drivingToHours = 0, drivingFromHours = 0) {
   const st = normalizeTime(startTime)
   const et = normalizeTime(endTime)
   if (!st) return { error: 'שעת כניסה לא תקינה (HH:MM)' }
@@ -808,6 +814,11 @@ async function autoCalcHours(date, startTime, endTime) {
   if (isNaN(startDt) || isNaN(endDt)) return { error: 'שעה לא תקינה' }
   if (endDt <= startDt) return { error: 'שעת יציאה לא תקינה' }
 
+  // Adjust for driving: work starts after driving-to, ends before driving-from
+  const workStartDt = new Date(startDt.getTime() + drivingToHours * 3600000)
+  const workEndRaw  = new Date(endDt.getTime()   - drivingFromHours * 3600000)
+  const workEndDt   = workEndRaw > workStartDt ? workEndRaw : workStartDt
+
   let periods = await fetchHebcalPeriods(date)
   if (endDate !== date) {
     const more = await fetchHebcalPeriods(endDate)
@@ -816,12 +827,12 @@ async function autoCalcHours(date, startTime, endTime) {
     }
   }
 
-  const totalHours = (endDt - startDt) / 3600000
+  const totalHours = (workEndDt - workStartDt) / 3600000
   let shabbatTotal = 0, holidayTotal = 0
   const detected = []
 
   for (const p of periods) {
-    const ov = overlapHours(startDt, endDt, p.start, p.end)
+    const ov = overlapHours(workStartDt, workEndDt, p.start, p.end)
     if (ov > 0.005) {
       if (p.type === 'shabbat') shabbatTotal += ov
       else holidayTotal += ov
@@ -834,7 +845,7 @@ async function autoCalcHours(date, startTime, endTime) {
   const normalHours = Math.round(Math.max(0, totalHours - shabbatTotal - holidayTotal) * 100) / 100
 
   // Night shifts have a 7-hour legal workday (OT kicks in at hour 8 instead of 9)
-  const isNight = isNightShift(startDt, endDt)
+  const isNight = isNightShift(workStartDt, workEndDt)
   const dr = isNight ? 7 : (settings.daily_regular_hours || 8)
 
   // ── Weekday hours → regular / OT×1.25 / OT×1.5
@@ -928,7 +939,7 @@ function calcEntryGross(e, s) {
   // op_bonus is NOT per-entry — it is calculated monthly based on cumulative מבצעי count
   const carPay = e.has_company_car ? (s.company_car_rate||60) : 0
   // Driving hours deducted from overtime (highest tier first), then regular as fallback
-  const drivingHrs = e.driving_hours || 0
+  const drivingHrs = (e.driving_hours_to||0) + (e.driving_hours_from||0) + (e.driving_hours||0)
   let remDriving = drivingHrs
   const eff200 = Math.max(0, (e.overtime_200_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_200_hours||0))
   const eff175 = Math.max(0, (e.overtime_175_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_175_hours||0))
@@ -971,11 +982,12 @@ function calcSummary(entries, s, opBonusOffset = 0) {
     regular_hours:0, overtime_125_hours:0, overtime_150_hours:0,
     overtime_175_hours:0, overtime_200_hours:0,
     shabbat_hours:0, holiday_hours:0, driving_km:0,
-    driving_hours:0, bonus:0, total_ashal:0, lina_count:0, op_bonus_count:0, company_car_days:0
+    driving_hours:0, driving_hours_to:0, driving_hours_from:0,
+    bonus:0, total_ashal:0, lina_count:0, op_bonus_count:0, company_car_days:0
   }
   entries.forEach(e => {
     // Deduct driving hours from overtime (highest tier first), regular as fallback
-    let remDriving = e.driving_hours || 0
+    let remDriving = (e.driving_hours_to||0) + (e.driving_hours_from||0) + (e.driving_hours||0)
     const eff200 = Math.max(0, (e.overtime_200_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_200_hours||0))
     const eff175 = Math.max(0, (e.overtime_175_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_175_hours||0))
     const eff150 = Math.max(0, (e.overtime_150_hours||0) - remDriving); remDriving = Math.max(0, remDriving - (e.overtime_150_hours||0))
@@ -989,7 +1001,11 @@ function calcSummary(entries, s, opBonusOffset = 0) {
     t.shabbat_hours       += e.shabbat_hours||0
     t.holiday_hours       += e.holiday_hours||0
     t.driving_km          += e.driving_km||0
-    t.driving_hours       += e.driving_hours||0
+    const dhTo   = (e.driving_hours_to||0) + (e.driving_hours||0)
+    const dhFrom = (e.driving_hours_from||0)
+    t.driving_hours_to   += dhTo
+    t.driving_hours_from += dhFrom
+    t.driving_hours      += dhTo + dhFrom
     t.bonus               += e.bonus||0
     t.total_ashal         += entryAshal(e, s)
     if (e.has_lina)        t.lina_count++
@@ -1077,6 +1093,45 @@ function dayLabel(ds) {
   return `${dd}/${mm}/${yyyy} ${wd}`
 }
 
+// ─── Time helpers ─────────────────────────────────────────────────────────────
+function addHoursToTime(timeStr, hours) {
+  if (!timeStr) return ''
+  const [h, m] = timeStr.split(':').map(Number)
+  const totalMin = Math.round(h * 60 + m + hours * 60)
+  const newH = (((Math.floor(totalMin / 60)) % 24) + 24) % 24
+  const newM = ((totalMin % 60) + 60) % 60
+  return `${String(newH).padStart(2,'0')}:${String(newM).padStart(2,'0')}`
+}
+
+// ─── Live shift timer ─────────────────────────────────────────────────────────
+let liveTimer = null
+
+function startLiveTimer(date, startTime) {
+  stopLiveTimer()
+  const st = normalizeTime(startTime)
+  if (!st || !date) return
+  const box  = document.getElementById('detect-box')
+  const info = document.getElementById('detect-info')
+  box.style.display = 'block'
+  box.className = 'detect-box'
+  function tick() {
+    const startDt = new Date(`${date}T${st}`)
+    let diff = Date.now() - startDt.getTime()
+    if (diff < 0) diff += 86400000 // shift started yesterday
+    const totalSec = Math.floor(diff / 1000)
+    const h   = Math.floor(totalSec / 3600)
+    const min = Math.floor((totalSec % 3600) / 60)
+    const sec = totalSec % 60
+    info.textContent = `⏱ ${h}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')} מתחילת המשמרת`
+  }
+  tick()
+  liveTimer = setInterval(tick, 1000)
+}
+
+function stopLiveTimer() {
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null }
+}
+
 // ─── Toast ────────────────────────────────────────────────────────────────────
 let toastT
 function showToast(msg, isErr) {
@@ -1112,11 +1167,12 @@ function openNewEntry() {
   document.getElementById('log-save-btn').textContent = 'שמור רישום'
   document.getElementById('log-delete-btn').style.display = 'none'
   document.getElementById('log-err').className = 'err-banner'
+  stopLiveTimer()
   document.getElementById('f-date').value = today()
   document.getElementById('f-start-time').value = ''
   document.getElementById('f-end-time').value = ''
   document.getElementById('detect-box').style.display = 'none'
-  ;['f-reg','f-ot125','f-ot150','f-ot175','f-ot200','f-shab','f-hol','f-dkm','f-dhrs','f-bonus'].forEach(id => document.getElementById(id).value='')
+  ;['f-reg','f-ot125','f-ot150','f-ot175','f-ot200','f-shab','f-hol','f-dkm','f-dhrs-to','f-dhrs-from','f-bonus'].forEach(id => document.getElementById(id).value='')
   document.getElementById('f-notes').value = ''
   document.getElementById('f-lina').checked = false
   document.getElementById('f-op-bonus').checked = false
@@ -1135,6 +1191,7 @@ async function openEditEntry(id) {
   document.getElementById('log-title').textContent = 'עריכת רישום'
   document.getElementById('log-save-btn').textContent = 'שמור שינויים'
   document.getElementById('log-delete-btn').style.display = 'block'
+  stopLiveTimer()
   document.getElementById('log-err').className = 'err-banner'
   document.getElementById('f-date').value = e.date
   document.getElementById('f-start-time').value = e.start_time || ''
@@ -1148,7 +1205,9 @@ async function openEditEntry(id) {
   document.getElementById('f-shab').value   = e.shabbat_hours||''
   document.getElementById('f-hol').value    = e.holiday_hours||''
   document.getElementById('f-dkm').value    = e.driving_km||''
-  document.getElementById('f-dhrs').value   = e.driving_hours||''
+  // backward compat: old entries used driving_hours; load into "to" field
+  document.getElementById('f-dhrs-to').value   = e.driving_hours_to != null ? e.driving_hours_to : (e.driving_hours||'')
+  document.getElementById('f-dhrs-from').value = e.driving_hours_from||''
   document.getElementById('f-bonus').value  = e.bonus||''
   document.getElementById('f-notes').value  = e.notes||''
   document.getElementById('f-lina').checked  = !!e.has_lina
@@ -1173,13 +1232,27 @@ function onTimeChange() {
 }
 
 async function runAutoDetect() {
-  const date      = document.getElementById('f-date').value
-  const startTime = document.getElementById('f-start-time').value
-  const endTime   = document.getElementById('f-end-time').value
-  const box       = document.getElementById('detect-box')
-  const info      = document.getElementById('detect-info')
+  const date        = document.getElementById('f-date').value
+  const startTime   = document.getElementById('f-start-time').value
+  const endTime     = document.getElementById('f-end-time').value
+  const drivingTo   = parseFloat(document.getElementById('f-dhrs-to').value)   || 0
+  const drivingFrom = parseFloat(document.getElementById('f-dhrs-from').value) || 0
+  const box         = document.getElementById('detect-box')
+  const info        = document.getElementById('detect-info')
 
-  if (!date || !startTime || !endTime) { box.style.display='none'; return }
+  if (!date || !startTime) { box.style.display='none'; stopLiveTimer(); return }
+
+  // Start time present but no end time → live shift timer
+  if (!endTime) {
+    if (!normalizeTime(startTime)) {
+      box.style.display='block'; box.className='detect-box err'
+      info.textContent = 'פורמט שעה: HH:MM (לדוגמה 08:30 או 16:45)'
+      stopLiveTimer(); return
+    }
+    startLiveTimer(date, startTime); return
+  }
+
+  stopLiveTimer()
   if (!normalizeTime(startTime) || !normalizeTime(endTime)) {
     box.style.display='block'; box.className='detect-box err'
     info.textContent = 'פורמט שעה: HH:MM (לדוגמה 08:30 או 16:45)'
@@ -1189,7 +1262,7 @@ async function runAutoDetect() {
   box.style.display='block'; box.className='detect-box'
   info.textContent = '⏳ מחשב ומאתר שבת/חגים...'
 
-  const result = await autoCalcHours(date, startTime, endTime)
+  const result = await autoCalcHours(date, startTime, endTime, drivingTo, drivingFrom)
 
   if (!result || result.error) {
     box.className='detect-box err'
@@ -1254,7 +1327,8 @@ async function saveEntry(ev) {
     shabbat_hours:        n('f-shab'),
     holiday_hours:        n('f-hol'),
     driving_km:           n('f-dkm'),
-    driving_hours:        n('f-dhrs'),
+    driving_hours_to:     n('f-dhrs-to'),
+    driving_hours_from:   n('f-dhrs-from'),
     bonus:                n('f-bonus'),
     notes:   document.getElementById('f-notes').value,
     has_lina:        document.getElementById('f-lina').checked,
@@ -1263,7 +1337,8 @@ async function saveEntry(ev) {
     has_company_car: document.getElementById('f-company-car').checked,
   }
   try {
-    await saveEntryDB(editId||date, data)
+    const entryId = editId || `${date}_${Date.now().toString(36)}`
+    await saveEntryDB(entryId, data)
     showToast(editId ? 'רישום עודכן ✓' : 'רישום נשמר ✓')
     navigate('monthly')
   } catch(err) {
@@ -1376,8 +1451,9 @@ async function loadDashboard() {
     [T.overtime_200_hours>0, 'שע״נ ×2.0',      `${fh(T.overtime_200_hours)} שע׳`, fc(P.overtime_200)],
     [T.shabbat_hours>0,      'שעות שבת',       `${fh(T.shabbat_hours)} שע׳`, fc(P.shabbat)],
     [T.holiday_hours>0,      'שעות חג',        `${fh(T.holiday_hours)} שע׳`, fc(P.holiday)],
-    [T.driving_km>0,         'נסיעות רכב פרטי',`${T.driving_km.toFixed(1)} ק״מ`, fc(P.driving_km)],
-    [T.driving_hours>0,      'שעות נסיעה',     `${T.driving_hours.toFixed(2)} שע׳`, fc(P.driving_hours)],
+    [T.driving_km>0,              'נסיעות רכב פרטי', `${T.driving_km.toFixed(1)} ק״מ`, fc(P.driving_km)],
+    [T.driving_hours_to>0,   'נסיעה לעבודה',  `${T.driving_hours_to.toFixed(2)} שע׳`, fc(T.driving_hours_to * (settings.driving_hourly_rate||70))],
+    [T.driving_hours_from>0, 'נסיעה מהעבודה', `${T.driving_hours_from.toFixed(2)} שע׳`, fc(T.driving_hours_from * (settings.driving_hourly_rate||70))],
     [T.company_car_days>0,   'דמי נסיעה',       `${T.company_car_days} ימים`, fc(P.company_car)],
     [T.total_ashal>0,        'אש״ל',           '', fc(P.ashal)],
     [T.lina_count>0,         'לינה',           `${T.lina_count}×`, fc(P.lina)],
@@ -1419,7 +1495,7 @@ async function loadDashboard() {
         (e.has_op_bonus || (e.op_bonus_count||0) > 0) && 'מבצעי',
         e.has_aziza && 'עזיזה',
         e.has_company_car && 'דמי נסיעה',
-        e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
+        ((e.driving_hours_to||0)+(e.driving_hours_from||0)+(e.driving_hours||0))>0 && `${((e.driving_hours_to||0)+(e.driving_hours_from||0)+(e.driving_hours||0)).toFixed(1)} שע׳ נסיעה`,
         e.bonus>0 && `+${fc(e.bonus)}`
       ].filter(Boolean).join(' · ')
       ul.innerHTML += `<li class="entry-item" onclick="openEditEntry('${e.id}')">
@@ -1456,7 +1532,17 @@ async function loadMonthly() {
   document.getElementById('mon-net').textContent   = fc(sum.net)
   document.getElementById('mon-days').textContent  = `${entries.length} ימים`
   const totalHrs = sum.totals.regular_hours+sum.totals.overtime_125_hours+sum.totals.overtime_150_hours+sum.totals.overtime_175_hours+sum.totals.overtime_200_hours+sum.totals.shabbat_hours+sum.totals.holiday_hours
-  document.getElementById('mon-totalhrs').textContent = `${totalHrs.toFixed(1)} שעות סה״כ`
+  document.getElementById('mon-totalhrs').textContent = `${totalHrs.toFixed(1)} שע׳ עבודה`
+  const T = sum.totals
+  if (T.driving_hours > 0) {
+    document.getElementById('mon-drivinghrs').style.display = ''
+    document.getElementById('mon-drivinghrs-val').style.display = ''
+    const dParts = [T.driving_hours_to > 0 && `${T.driving_hours_to.toFixed(1)} הלוך`, T.driving_hours_from > 0 && `${T.driving_hours_from.toFixed(1)} חזור`].filter(Boolean)
+    document.getElementById('mon-drivinghrs-val').textContent = dParts.join(' + ') + ' שע׳ נסיעה'
+  } else {
+    document.getElementById('mon-drivinghrs').style.display = 'none'
+    document.getElementById('mon-drivinghrs-val').style.display = 'none'
+  }
   document.getElementById('mon-loading').style.display='none'
 
   const ul = document.getElementById('mon-entries')
@@ -1479,10 +1565,27 @@ async function loadMonthly() {
         e.has_aziza            && '<span class="tag tv">עזיזה</span>',
         e.bonus>0              && '<span class="tag tg">בונוס</span>'
       ].filter(Boolean).join('')
+      const eDhTo   = (e.driving_hours_to||0)   + (e.driving_hours||0)
+      const eDhFrom = (e.driving_hours_from||0)
+      // Build work time string with actual work window when driving is present
+      let workTime = ''
+      if (e.start_time) {
+        const wStart = eDhTo   > 0 ? addHoursToTime(e.start_time, eDhTo)    : e.start_time
+        const wEnd   = eDhFrom > 0 ? addHoursToTime(e.end_time,  -eDhFrom)  : e.end_time
+        if (eDhTo > 0 || eDhFrom > 0) {
+          workTime = `${e.start_time}–${e.end_time || '?'} (עבודה ${wStart}–${wEnd || '?'})`
+        } else if (e.end_time) {
+          workTime = `${e.start_time}–${e.end_time}`
+        } else {
+          workTime = `${e.start_time}–`
+        }
+      }
+      const driveStr = [eDhTo > 0 && `${eDhTo.toFixed(1)} הלוך`, eDhFrom > 0 && `${eDhFrom.toFixed(1)} חזור`].filter(Boolean).join('+')
       const detail = [
-        hrs>0 && `${hrs.toFixed(1)} שע׳`,
-        e.driving_km>0    && `${e.driving_km} ק״מ`,
-        e.driving_hours>0 && `${e.driving_hours} שע׳ נסיעה`,
+        workTime || (hrs > 0 && `${hrs.toFixed(1)} שע׳`),
+        hrs > 0 && workTime && `${hrs.toFixed(1)} שע׳`,
+        driveStr && `🚗 ${driveStr} שע׳`,
+        e.driving_km > 0 && `${e.driving_km} ק״מ`,
         e.notes && e.notes
       ].filter(Boolean).join(' · ')
       ul.innerHTML += `<li class="swipe-wrap">
@@ -1619,8 +1722,9 @@ async function loadStub() {
 
   // ── Allowances & extras (not pensionable) ──
   const extRows = [
-    [T.driving_km>0,       `נסיעות רכב פרטי — ${T.driving_km.toFixed(1)} ק״מ × ₪${s.driving_km_rate}`, P.driving_km],
-    [T.driving_hours>0,   `שעות נסיעה — ${T.driving_hours.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||70}`, P.driving_hours],
+    [T.driving_km>0,          `נסיעות רכב פרטי — ${T.driving_km.toFixed(1)} ק״מ × ₪${s.driving_km_rate}`, P.driving_km],
+    [T.driving_hours_to>0,   `נסיעה לעבודה — ${T.driving_hours_to.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||70}`, T.driving_hours_to * (s.driving_hourly_rate||70)],
+    [T.driving_hours_from>0, `נסיעה מהעבודה — ${T.driving_hours_from.toFixed(2)} שע׳ × ₪${s.driving_hourly_rate||70}`, T.driving_hours_from * (s.driving_hourly_rate||70)],
     [T.company_car_days>0, `דמי נסיעה — ${T.company_car_days} ימים × ₪${s.company_car_rate||60}`, P.company_car],
     [T.bonus>0,            'בונוסים', P.bonus],
     [T.total_ashal>0,      `אש״ל (${Math.round(T.total_ashal/(s.ashal_amount||1))}× ₪${s.ashal_amount})`, P.ashal],
@@ -1881,8 +1985,12 @@ const DAY_FULL  = ['ראשון','שני','שלישי','רביעי','חמישי',
 
 async function exportWebtime() {
   const entries = await loadEntries(monMonth)
+  // Group entries by date (supports multiple shifts per day)
   const byDate = {}
-  entries.forEach(e => { byDate[e.date] = e })
+  entries.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = []
+    byDate[e.date].push(e)
+  })
 
   const [y, m] = monMonth.split('-').map(Number)
   const daysInMonth = new Date(y, m, 0).getDate()
@@ -1891,8 +1999,7 @@ async function exportWebtime() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
     const dow = new Date(dateStr + 'T00:00:00').getDay() // 0=Sun … 6=Sat
-    const e = byDate[dateStr]
-    rows.push({ dateStr, d, dow, entry: e || null })
+    rows.push({ dateStr, d, dow, entry: byDate[dateStr] || null })
   }
 
   const dd = d => String(d).padStart(2,'0')
@@ -1908,32 +2015,39 @@ async function exportWebtime() {
       </tr>
     </thead>
     <tbody>
-      ${rows.map(({d, dow, entry}) => {
+      ${rows.map(({d, dow, entry: dayEntries}) => {
         const isWeekend = dow === 5 || dow === 6
-        const cls = entry ? 'wt-worked' : isWeekend ? 'wt-weekend' : 'wt-empty'
         const dateDisp = `${dd(d)}/${dd(m)}`
         const dayDisp  = DAY_FULL[dow]
-        const start    = entry?.start_time || ''
-        const end      = entry?.end_time   || ''
-        const notes    = entry?.notes      || ''
-        return `<tr class="${cls}">
-          <td class="wt-date">${dateDisp}</td>
-          <td>${dayDisp}</td>
-          <td class="wt-time">${start || '—'}</td>
-          <td class="wt-time">${end   || '—'}</td>
-          <td style="font-size:12px;color:var(--text3);text-align:right">${notes}</td>
-        </tr>`
+        if (!dayEntries || !dayEntries.length) {
+          const cls = isWeekend ? 'wt-weekend' : 'wt-empty'
+          return `<tr class="${cls}">
+            <td class="wt-date">${dateDisp}</td>
+            <td>${dayDisp}</td>
+            <td class="wt-time">—</td>
+            <td class="wt-time">—</td>
+            <td style="font-size:12px;color:var(--text3);text-align:right"></td>
+          </tr>`
+        }
+        return dayEntries.map((e, i) => `<tr class="wt-worked">
+          <td class="wt-date">${i === 0 ? dateDisp : ''}</td>
+          <td>${i === 0 ? dayDisp : ''}</td>
+          <td class="wt-time">${e.start_time || '—'}</td>
+          <td class="wt-time">${e.end_time   || '—'}</td>
+          <td style="font-size:12px;color:var(--text3);text-align:right">${e.notes || ''}</td>
+        </tr>`).join('')
       }).join('')}
     </tbody>
   </table>`
 
   document.getElementById('webtime-table-wrap').innerHTML = html
 
-  // ── Generate auto-fill script ──
+  // ── Generate auto-fill script (use first shift per day) ──
   const shifts = {}
   entries.forEach(e => {
     if (!e.start_time || !e.end_time) return
     const day = parseInt(e.date.split('-')[2])
+    if (shifts[day]) return // keep first shift only
     const [sh, sm] = e.start_time.split(':')
     const [eh, em] = e.end_time.split(':')
     shifts[day] = [sh, sm, eh, em]
