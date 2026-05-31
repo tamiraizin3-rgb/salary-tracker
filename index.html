@@ -2054,12 +2054,14 @@ async function exportWebtime() {
         return dayEntries.map((e, i) => {
           const dhTo   = (e.driving_hours_to   != null ? e.driving_hours_to   : (e.driving_hours||0))
           const dhFrom = (e.driving_hours_from  != null ? e.driving_hours_from : 0)
+          const workStart = e.start_time ? addHoursToTime(e.start_time,  dhTo)   : '—'
+          const workEnd   = e.end_time   ? addHoursToTime(e.end_time,   -dhFrom) : '—'
           const extras = [e.has_aziza && 'עזיזה', e.has_lina && 'לינה'].filter(Boolean).join(' · ')
           return `<tr class="wt-worked">
             <td class="wt-date">${i === 0 ? dateDisp : ''}</td>
             <td>${i === 0 ? dayDisp : ''}</td>
-            <td class="wt-time">${e.start_time || '—'}</td>
-            <td class="wt-time">${e.end_time   || '—'}</td>
+            <td class="wt-time">${workStart}</td>
+            <td class="wt-time">${workEnd}</td>
             <td style="text-align:center;font-size:13px">${dhTo   > 0 ? dhTo   : '—'}</td>
             <td style="text-align:center;font-size:13px">${dhFrom > 0 ? dhFrom : '—'}</td>
             <td style="font-size:12px;color:var(--warning);text-align:center">${extras}</td>
