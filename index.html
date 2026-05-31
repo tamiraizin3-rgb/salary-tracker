@@ -348,6 +348,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 <!-- ▸ Log Entry -->
 <div class="page" id="page-log">
   <h1 class="page-title" id="log-title">רישום יום עבודה</h1>
+  <div id="log-shift-nav" class="month-nav" style="display:none;padding:8px 14px">
+    <button class="mnb" id="log-nav-prev" onclick="navShift(-1)">&#8250;</button>
+    <span id="log-nav-counter" class="fs13 text3"></span>
+    <button class="mnb" id="log-nav-next" onclick="navShift(1)">&#8249;</button>
+  </div>
   <div class="err-banner" id="log-err"></div>
   <form id="log-form" onsubmit="saveEntry(event)" novalidate>
     <div class="card">
@@ -1119,6 +1124,7 @@ let settings = { ...DEFAULTS }
 let editId = null
 let monMonth = cm()
 let stubMonth = cm()
+let monthlyEntryIds = []
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 function navigate(page) {
@@ -1140,6 +1146,7 @@ function openNewEntry() {
   document.getElementById('log-title').textContent = 'רישום יום עבודה'
   document.getElementById('log-save-btn').textContent = 'שמור רישום'
   document.getElementById('log-delete-btn').style.display = 'none'
+  document.getElementById('log-shift-nav').style.display = 'none'
   document.getElementById('log-err').className = 'err-banner'
   document.getElementById('f-date').value = today()
   document.getElementById('f-start-time').value = ''
@@ -1165,6 +1172,16 @@ async function openEditEntry(id) {
   document.getElementById('log-save-btn').textContent = 'שמור שינויים'
   document.getElementById('log-delete-btn').style.display = 'block'
   document.getElementById('log-err').className = 'err-banner'
+  const idx = monthlyEntryIds.indexOf(id)
+  const nav = document.getElementById('log-shift-nav')
+  if (idx !== -1) {
+    nav.style.display = 'flex'
+    document.getElementById('log-nav-counter').textContent = `${idx + 1} / ${monthlyEntryIds.length}`
+    document.getElementById('log-nav-prev').disabled = idx >= monthlyEntryIds.length - 1
+    document.getElementById('log-nav-next').disabled = idx <= 0
+  } else {
+    nav.style.display = 'none'
+  }
   document.getElementById('f-date').value = e.date
   document.getElementById('f-start-time').value = e.start_time || ''
   document.getElementById('f-end-time').value = e.end_time || ''
@@ -1191,6 +1208,15 @@ async function openEditEntry(id) {
   navigate('log')
 }
 window.openEditEntry = openEditEntry
+
+function navShift(dir) {
+  const idx = monthlyEntryIds.indexOf(editId)
+  if (idx === -1) return
+  const next = idx - dir
+  if (next < 0 || next >= monthlyEntryIds.length) return
+  openEditEntry(monthlyEntryIds[next])
+}
+window.navShift = navShift
 
 // ─── Time auto-detection ──────────────────────────────────────────────────────
 function updateLinaLabel() {
@@ -1505,6 +1531,7 @@ async function loadMonthly() {
     el.style.display='block'
     document.getElementById('mon-empty-text').textContent = `אין רישומים ל${monthLabel(monMonth)}.`
   } else {
+    monthlyEntryIds = [...entries].reverse().map(e => e.id)
     ;[...entries].reverse().forEach(e => {
       const gross = calcEntryGross(e, s)
       const hrs = (e.regular_hours||0)+(e.overtime_125_hours||0)+(e.overtime_150_hours||0)+(e.overtime_175_hours||0)+(e.overtime_200_hours||0)+(e.shabbat_hours||0)+(e.holiday_hours||0)
@@ -2003,6 +2030,9 @@ async function exportWebtime() {
         <th>יום</th>
         <th>שעת כניסה</th>
         <th>שעת יציאה</th>
+        <th>נסיעה הלוך</th>
+        <th>נסיעה חזור</th>
+        <th>תוספות</th>
         <th>הערות</th>
       </tr>
     </thead>
@@ -2018,16 +2048,24 @@ async function exportWebtime() {
             <td>${dayDisp}</td>
             <td class="wt-time">—</td>
             <td class="wt-time">—</td>
-            <td style="font-size:12px;color:var(--text3);text-align:right"></td>
+            <td></td><td></td><td></td><td></td>
           </tr>`
         }
-        return dayEntries.map((e, i) => `<tr class="wt-worked">
-          <td class="wt-date">${i === 0 ? dateDisp : ''}</td>
-          <td>${i === 0 ? dayDisp : ''}</td>
-          <td class="wt-time">${e.start_time || '—'}</td>
-          <td class="wt-time">${e.end_time   || '—'}</td>
-          <td style="font-size:12px;color:var(--text3);text-align:right">${e.notes || ''}</td>
-        </tr>`).join('')
+        return dayEntries.map((e, i) => {
+          const dhTo   = (e.driving_hours_to   != null ? e.driving_hours_to   : (e.driving_hours||0))
+          const dhFrom = (e.driving_hours_from  != null ? e.driving_hours_from : 0)
+          const extras = [e.has_aziza && 'עזיזה', e.has_lina && 'לינה'].filter(Boolean).join(' · ')
+          return `<tr class="wt-worked">
+            <td class="wt-date">${i === 0 ? dateDisp : ''}</td>
+            <td>${i === 0 ? dayDisp : ''}</td>
+            <td class="wt-time">${e.start_time || '—'}</td>
+            <td class="wt-time">${e.end_time   || '—'}</td>
+            <td style="text-align:center;font-size:13px">${dhTo   > 0 ? dhTo   : '—'}</td>
+            <td style="text-align:center;font-size:13px">${dhFrom > 0 ? dhFrom : '—'}</td>
+            <td style="font-size:12px;color:var(--warning);text-align:center">${extras}</td>
+            <td style="font-size:12px;color:var(--text3);text-align:right">${e.notes || ''}</td>
+          </tr>`
+        }).join('')
       }).join('')}
     </tbody>
   </table>`
